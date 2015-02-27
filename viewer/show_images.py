@@ -19,17 +19,22 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 
-# s3conn = boto.connect_s3(cfg.vipr_access_key, cfg.vipr_secret_key, host=cfg.vipr_url)
-# bucket = s3conn.get_bucket(cfg.vipr_bucket_name)
 
 app = Flask(__name__)
 
 redis_images = redis.Redis(host=cfg.redis_host,db=cfg.redis_images_db, password=cfg.redis_password)
 
 def get_random_urls(count=100):
-    urls = []
+    pipe_keys = redis_images.pipeline()
+    pipe_urls = redis_images.pipeline()
+    keys = []
     for i in range(0,count):
-        urls.append(redis_images.get(redis_images.randomkey()))
+        pipe_keys.randomkey()
+
+    for key in pipe_keys.execute():
+        pipe_urls.get(key)
+
+    urls = pipe_urls.execute()
     return urls
 
 @app.route('/')
