@@ -18,7 +18,7 @@ max_cache_time = 2
 
 
 logger = logging.getLogger('')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] [%(levelname)-5.5s] %(message)s")
 # loggly_handler = loggly.handlers.HTTPSHandler(url="{}{}".format(credentials["Loggly"]["url"], "gui"))
 # loggly_handler.setLevel(logging.DEBUG)
@@ -51,9 +51,14 @@ def update_dashboard():
     send_update.delay("tweets-in-queue",get_queue_len())
     logger.info("Sending update for {}".format("time-in-queue"))
     send_update.delay("longest-time-in-queue", get_time_in_q())
+    logger.info("Sending update for {}".format("key-count"))
     send_update.delay("keys-in-redis", get_image_count())
+    logger.info("Sending update for {}".format("worker-count"))
     send_update.delay("worker-count",get_worker_count())
+    logger.info("Sending update for {}".format("image-size"))
     send_update.delay("images-size",get_image_size())
+    logger.info("Sending update for {}".format("ops-per-sec"))
+    send_update.delay("ops",get_ops_per_sec())
 
 def get_worker_count():
 
@@ -72,6 +77,9 @@ def get_image_size():
 
 def get_image_count():
     return r.info()['db4']['keys']
+
+def get_ops_per_sec():
+    return r.info()['instantaneous_ops_per_sec']
 
 def get_queue_len():
     return len(q)
