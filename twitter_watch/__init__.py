@@ -8,6 +8,7 @@ from pprint import pprint,pformat
 import logging
 import boto
 from boto.s3.key import Key
+from boto.s3.lifecycle import Lifecycle, Expiration
 import time
 import redis
 import uuid
@@ -33,15 +34,15 @@ import dweepy
 cfg = Config(file('private_config.cfg'))
 
 redis_images = redis.Redis(host=cfg.redis_host,db=cfg.redis_images_db, password=cfg.redis_password)
-r = redis.Redis(
+redis_queue = redis.Redis(
     host=cfg.redis_host,
     db=cfg.redis_rq_db,
     password=cfg.redis_password
 )
 
-q = Queue(connection=r)
+q = Queue(connection=redis_queue, async=True)
 
-@job("dashboard",connection=r,timeout=3)
+@job("dashboard",connection=redis_queue,timeout=3)
 def send_update(metric, value):
     dweepy.dweet_for(cfg.dweet_thing, {metric: value})
 
@@ -52,7 +53,7 @@ def get_image(image_url):
     image = retrieve_image(image_url)
     if image is not None:
         image = process_image(image)
-        if cfg.actually_store == True:
+        if cfg.actually_store:
             key = store_to_vipr(image)
             store_to_redis(key)
     end = time.time()
@@ -63,12 +64,13 @@ def get_image(image_url):
 @log_with(logger)
 def store_to_redis(image_key):
     url = image_key.generate_url(1200)
-    redis_images.set(image_key.key,image_key.generate_url(1200))
+    redis_images.set(image_key.key,image_key.generate_url(60*60*23))
+    redis_images.expire(image_key.key,60*60*23)  # Expire in 23 hours
     logger.info("Stored image to redis: {}".format(image_key))
 
 
 @log_with(logger)
-def process_image(image, random_sleep=5):
+def process_image(image, random_sleep=1):
     # for x in range(1, random.randint(10, 100)):
     #     # logger.debug("Image Filter Pass {}".format(x))
     #     image = image.filter(ImageFilter.BLUR)
@@ -96,11 +98,19 @@ def retrieve_image(image_url):
 
 @log_with(logger)
 def store_to_vipr(image_data):
+    logger.debug("Storing to ViPR")
+    logger.debug("Connecting to ViPR")
     s3conn = boto.connect_s3(cfg.vipr_access_key, cfg.vipr_secret_key, host=cfg.vipr_url)
+    logger.debug("Getting bucket")
     bucket = s3conn.get_bucket(cfg.vipr_bucket_name)
+    lifecycle = Lifecycle()
+    logger.debug("Setting Bucket RulesViPR")
+    lifecycle.add_rule('Expire 1 day', status='Enabled',expiration=Expiration(days=1))
+
     image_guid = str(uuid.uuid4())
     k = Key(bucket)
     k.key = "{}.jpg".format(image_guid)
+    logger.debug("Uploading to ViPR")
     k.set_contents_from_string(image_data.getvalue())
     logger.info("Stored image {} to object store".format(k.key))
     return k
@@ -115,15 +125,14 @@ def watch_stream(every=10):
         access_token_secret=cfg.twitter_token_secret
     )
     tweet_count = 0
-    r = twitter_api.request('statuses/filter', {'track': cfg.hashtag})
-    #r = twitter_api.request('statuses/filter', {'locations': '-74,40,-73,41'})
-    for tweet in r.get_iterator():
+    redis_conn = twitter_api.request('statuses/filter', {'track': cfg.hashtag})
+    for tweet in redis_conn.get_iterator():
         tweet_count += 1
         logger.info("{}: Tweet Received".format(tweet_count))
         if tweet_count % every == 0:
             send_update("tweet-count",tweet_count)
         if not tweet['retweeted'] and 'entities' in tweet and 'media' in tweet['entities'] and \
-                        tweet['entities']['media'][0]['type'] == 'photo':
+                tweet['entities']['media'][0]['type'] == 'photo':
             logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))
             q.enqueue(
                 get_image,

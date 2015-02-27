@@ -5,6 +5,7 @@ import time
 import logging
 import redis
 from log_with import log_with, dump_args
+import boto
 from memoize import Memoizer
 from rq import Queue, Worker
 from rq.decorators import job
@@ -48,16 +49,29 @@ def update_dashboard():
     logger.info("updating")
     logger.info("Sending update for {}".format("tweets-in-queue"))
     send_update.delay("tweets-in-queue",get_queue_len())
-    #send_update("qlengraph", get_queue_len())
     logger.info("Sending update for {}".format("time-in-queue"))
     send_update.delay("longest-time-in-queue", get_time_in_q())
-    #send_update("qtimegraph", get_time_in_q())
-
+    send_update.delay("keys-in-redis", get_image_count())
     send_update.delay("worker-count",get_worker_count())
+    send_update.delay("images-size",get_image_size())
 
 def get_worker_count():
 
     return len(r.smembers("rq:workers"))-1
+
+def get_image_size():
+    logger.debug("Connecting to ViPR")
+    s3conn = boto.connect_s3(cfg.vipr_access_key, cfg.vipr_secret_key, host=cfg.vipr_url)
+    logger.debug("Getting bucket")
+    bucket = s3conn.get_bucket(cfg.vipr_bucket_name)
+    total_size = 0
+    for key in bucket.list():
+        total_size += key.size
+    total_size = round(total_size / 1024 / 1024)
+    return total_size
+
+def get_image_count():
+    return r.info()['db4']['keys']
 
 def get_queue_len():
     return len(q)
