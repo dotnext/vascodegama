@@ -4,4 +4,4 @@ import time
 if __name__ == "__main__":
     while True:
         update_dashboard()
-        time.sleep(5)
+        time.sleep(10)
