@@ -1,35 +1,35 @@
 ---
 applications:
 - name: twitter-watcher
-  memory: 64M
+  memory: 128M
   no-route: true
   instances: 1
   buildpack: python_buildpack
   command: python run.py
 
 - name: twitter-worker
-  memory: 64M
+  memory: 128M
   no-route: true
   instances: 5
   buildpack: python_buildpack
-  command: rqworker -u redis://:Habloo12@direct.exaforge.com/3 default
+  command: rqworker -u redis://:Habloo12@direct.exaforge.com/3 default dashboard
 
 - name: twitter-dashworker
-  memory: 64M
+  memory: 128M
   no-route: true
   instances: 1
   buildpack: python_buildpack
   command: rqworker -u redis://:Habloo12@direct.exaforge.com/3 dashboard
 
 - name: twitter-dashboard
-  memory: 64M
+  memory: 128M
   no-route: true
   instances: 1
   buildpack: python_buildpack
   command: python run_dashboard.py
 
 - name: twitter-scaler
-  memory: 64M
+  memory: 128M
   no-route: false
   instances: 1
   buildpack: python_buildpack
