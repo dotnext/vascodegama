@@ -12,14 +12,14 @@ applications:
   no-route: true
   instances: 5
   buildpack: python_buildpack
-  command: rqworker -u redis://:Habloo12@direct.exaforge.com/3 default dashboard
+  command: rqworker -u redis://:PBBJB7wVvNxdsQUKqhNtd7TjkUx7wFhFQM8s@db64320ca05d4a35b8a1c0ca17adb3b9.publb.rackspaceclouddb.com:63368/3 default dashboard
 
 - name: twitter-dashworker
   memory: 128M
   no-route: true
   instances: 1
   buildpack: python_buildpack
-  command: rqworker -u redis://:Habloo12@direct.exaforge.com/3 dashboard
+  command: rqworker -u redis://:PBBJB7wVvNxdsQUKqhNtd7TjkUx7wFhFQM8s@db64320ca05d4a35b8a1c0ca17adb3b9.publb.rackspaceclouddb.com:63368/3 dashboard
 
 - name: twitter-dashboard
   memory: 128M
