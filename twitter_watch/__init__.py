@@ -35,13 +35,14 @@ logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.W
 cfg = Config(file('private_config.cfg')) #import our configuration file
 
 #setup a connection to redis for the images database (Redis can have multiple databases)
-redis_images = redis.Redis(host=cfg.redis_host,db=cfg.redis_images_db, password=cfg.redis_password)
+redis_images = redis.Redis(host=cfg.redis_host,db=cfg.redis_images_db, password=cfg.redis_password, port=cfg.redis_port)
 
 #Setup a connection that will be used by RQ (each redis connection instance only talks to 1 DB)
 redis_queue = redis.Redis(
     host=cfg.redis_host,
     db=cfg.redis_rq_db,
-    password=cfg.redis_password
+    password=cfg.redis_password,
+    port=cfg.redis_port
 )
 
 #Based on that connection, setup our job queue, and set async=True to tell it we want to run jobs out-of-band.

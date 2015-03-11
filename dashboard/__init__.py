@@ -40,13 +40,15 @@ cfg = Config(file('private_config.cfg'))
 r = redis.Redis(
     host=cfg.redis_host,
     db=cfg.redis_rq_db,
-    password=cfg.redis_password
+    password=cfg.redis_password,
+    port=cfg.redis_port
 )
 
 redis_images = redis.Redis(
     host=cfg.redis_host,
     db=cfg.redis_images_db,
-    password=cfg.redis_password
+    password=cfg.redis_password,
+    port=cfg.redis_port
 )
 q = Queue(connection=r)
 

@@ -57,3 +57,4 @@ target/
 .DS_Store
 
 .idea/
+private_config.cfg
