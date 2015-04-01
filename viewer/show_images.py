@@ -24,7 +24,7 @@ logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.W
 app = Flask(__name__)
 
 #connect to redis
-redis_images = redis.Redis(host=cfg.redis_images_host, db=cfg.redis_images_db, port=cfg.redis_images_port,password=cfg.redis_images_password, port=cfg.redis_port)
+redis_images = redis.Redis(host=cfg.redis_images_host, db=cfg.redis_images_db, port=cfg.redis_images_port,password=cfg.redis_images_password)
 
 #gets a list of random URLS from refis.
 def get_random_urls(count=100):
