@@ -38,17 +38,17 @@ logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.W
 
 cfg = Config(file('private_config.cfg'))
 r = redis.Redis(
-    host=cfg.redis_host,
+    host=cfg.redis_rq_host,
     db=cfg.redis_rq_db,
-    password=cfg.redis_password,
-    port=cfg.redis_port
+    password=cfg.redis_rq_password,
+    port=cfg.redis_rq_port
 )
 
 redis_images = redis.Redis(
-    host=cfg.redis_host,
+    host=cfg.redis_images_host,
     db=cfg.redis_images_db,
-    password=cfg.redis_password,
-    port=cfg.redis_port
+    password=cfg.redis_images_password,
+    port=cfg.redis_images_port
 )
 q = Queue(connection=r)
 
