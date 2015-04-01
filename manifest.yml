@@ -12,14 +12,14 @@ applications:
   no-route: true
   instances: 5
   buildpack: python_buildpack
-  command: rqworker -u redis://:Habloo12@direct.exaforge.com/3 default dashboard
+  command: rqworker -u redis://:3KYXZvxmogOl5znU@pub-redis-19210.us-east-1-3.4.ec2.garantiadata.com:19210/0 default dashboard
 
 - name: twitter-dashworker
   memory: 128M
   no-route: true
   instances: 1
   buildpack: python_buildpack
-  command: rqworker -u redis://:Habloo12@direct.exaforge.com/3 dashboard
+  command: rqworker -u redis://:3KYXZvxmogOl5znU@pub-redis-19210.us-east-1-3.4.ec2.garantiadata.com:19210/0 dashboard
 
 - name: twitter-dashboard
   memory: 128M
@@ -28,7 +28,7 @@ applications:
   buildpack: python_buildpack
   command: python run_dashboard.py
 
-- name: twitter-scaler
+- name: twitter-scaler-dogw
   memory: 128M
   no-route: false
   instances: 1
@@ -38,7 +38,7 @@ applications:
 - name: twitter-images
   memory: 128M
   no-route: false
-  host: vascodegama
+  host: vascodegama-dogw
   instances: 1
   buildpack: python_buildpack
   command: python viewer/show_images.py
