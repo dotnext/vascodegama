@@ -7,6 +7,8 @@ import requests #request is a great library for interacting with web services
 from pprint import pprint,pformat #pprint can pretty print complex data structures
 import logging #the standard python logging library
 import boto # the library for interacting with AWS services
+import socket # i have no idea what this is
+from logging.handlers import SysLogHandler #import syslog handler
 from boto.s3.key import Key #Class to represent a S3 key
 from boto.s3.lifecycle import Lifecycle, Expiration #classes so we can set lifecycles/expirations on objects
 import time #basic time handling library
@@ -18,21 +20,37 @@ from rq import Queue #RQ, the job queueing system we use
 from rq.decorators import job #And the function decoration for it.
 import dweepy #the library we use for sending status updates.  Check http://dweet.io
 
+cfg = Config(file('private_config.cfg')) #import our configuration file
+
+class ContextFilter(logging.Filter):
+  hostname = socket.gethostname()
+  def filter(self, record):
+    record.hostname = ContextFilter.hostname
+    return True
+
 logger = logging.getLogger('') #Grab the logging instance for our app, so we can make changes
 logger.setLevel(logging.DEBUG) # LOG ALL THE THINGS!
-formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] [%(levelname)-5.5s] %(message)s")
+f = ContextFilter() #create context filter instance
+logger.addFilter(f) #add the filter to the logger
+
+syslog = SysLogHandler(address=('logs2.papertrailapp.com', 40001))
+
+formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
 #and make them look prettier
+
+syslog.setFormatter(formatter)
 
 ch = logging.StreamHandler() #set up a logging handler for the screen
 ch.setLevel(logging.INFO) #make it only spit out INFO messages
 ch.setFormatter(formatter) #make it use the pretty format
 logger.addHandler(ch) #and finally add it to the logging instance
+logger.addHandler(syslog) #and finally add it to the logging instance
 
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 #From this particular library, supress certain messages.
 
 
-cfg = Config(file('private_config.cfg')) #import our configuration file
+
 
 #setup a connection to redis for the images database (Redis can have multiple databases)
 redis_images = redis.Redis(host=cfg.redis_images_host,db=cfg.redis_images_db, password=cfg.redis_images_password, port=cfg.redis_images_port)
