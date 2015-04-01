@@ -4,11 +4,27 @@ import logging #with loggins
 import redis #and redis
 from config import Config # and the config files
 import os #and some OS functions
+import socket # i have no idea what this is
+from logging.handlers import SysLogHandler #import syslog handler
+
+class ContextFilter(logging.Filter):
+  hostname = socket.gethostname()
+  def filter(self, record):
+    record.hostname = ContextFilter.hostname
+    return True
 
 cfg = Config(file('private_config.cfg'))
 logger = logging.getLogger('')
 logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] [%(levelname)-5.5s] %(message)s")
+f = ContextFilter() #create context filter instance
+logger.addFilter(f) #add the filter to the logger
+
+syslog = SysLogHandler(address=('logs2.papertrailapp.com', 40001))
+
+formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
+
+syslog.setFormatter(formatter)
+
 # loggly_handler = loggly.handlers.HTTPSHandler(url="{}{}".format(credentials["Loggly"]["url"], "gui"))
 # loggly_handler.setLevel(logging.DEBUG)
 # logger.addHandler(loggly_handler)
@@ -16,6 +32,7 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+logger.addHandler(syslog) #and finally add it to the logging instance
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 #setup logging, check twitter_watch for details on what all the above does.
 

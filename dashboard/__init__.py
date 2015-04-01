@@ -9,7 +9,8 @@ import datetime #date/time utils
 import time #time utils
 from rq.decorators import job #funtion decoration
 import dweepy #see dweet.io
-
+import socket # i have no idea what this is
+from logging.handlers import SysLogHandler #import syslog handler
 
 
 
@@ -20,9 +21,24 @@ memo = Memoizer(cache_store) #Use that.
 max_cache_time = 2 #But only keep results for 2 seconds.
 
 
+class ContextFilter(logging.Filter):
+  hostname = socket.gethostname()
+  def filter(self, record):
+    record.hostname = ContextFilter.hostname
+    return True
+
+
+
+
 logger = logging.getLogger('')
 logger.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] [%(levelname)-5.5s] %(message)s")
+f = ContextFilter() #create context filter instance
+logger.addFilter(f) #add the filter to the logger
+syslog = SysLogHandler(address=('logs2.papertrailapp.com', 40001))
+
+formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
+syslog.setFormatter(formatter)
+
 # loggly_handler = loggly.handlers.HTTPSHandler(url="{}{}".format(credentials["Loggly"]["url"], "gui"))
 # loggly_handler.setLevel(logging.DEBUG)
 # logger.addHandler(loggly_handler)
@@ -30,6 +46,8 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+logger.addHandler(syslog) #and finally add it to the logging instance
+
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 ###Setup all our logging, see twitter_watch for more details.
 
