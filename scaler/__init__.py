@@ -67,7 +67,7 @@ def index():
 @requires_auth
 def apps():
     logging.info("Got request for apps")
-    cfi = CloudFoundryInterface('https://api.run.pivotal.io', username=cfg.cf_user, password=cfg.cf_pass) #connect to CF
+    cfi = CloudFoundryInterface('https://api.run.pivotal.io', username=configstuff['cf_user'], password=configstuff['cf_pass']) #connect to CF
     cfi.login() #login
 
     app_list = [cf_app.name for cf_app in cfi.apps.itervalues()] #get the list of apps (this technique is called a list comprehension, BTW)
