@@ -4,6 +4,8 @@ applications:
   memory: 128M
   no-route: true
   instances: 1
+  services:
+   - vascodagama-db
   buildpack: python_buildpack
   command: python run.py
 
@@ -11,6 +13,9 @@ applications:
   memory: 128M
   no-route: true
   instances: 5
+  services:
+   - vascodagama-db
+   - vascodagama-images
   buildpack: python_buildpack
   command: rqworker -c settings
 
@@ -25,12 +30,16 @@ applications:
   memory: 128M
   no-route: true
   instances: 1
+  services:
+   - vascodagama-db
+   - vascodagama-images
   buildpack: python_buildpack
   command: python run_dashboard.py
 
-- name: twitter-scaler-dogw
+- name: twitter-scaler
   memory: 128M
   no-route: false
+  host: vascodegama-scaler-dogw
   instances: 1
   buildpack: python_buildpack
   command: python scaler/__init__.py
@@ -40,5 +49,7 @@ applications:
   no-route: false
   host: vascodegama-dogw
   instances: 1
+  services:
+   - vascodagama-images
   buildpack: python_buildpack
   command: python viewer/show_images.py
