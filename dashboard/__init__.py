@@ -9,6 +9,7 @@ import datetime #date/time utils
 import time #time utils
 from rq.decorators import job #funtion decoration
 import dweepy #see dweet.io
+import os,json
 import socket # i have no idea what this is
 from logging.handlers import SysLogHandler #import syslog handler
 
@@ -51,23 +52,37 @@ logger.addHandler(syslog) #and finally add it to the logging instance
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 ###Setup all our logging, see twitter_watch for more details.
 
+redis_rq_creds = {}
+redis_images_creds = {}
+s3_creds = {}
+twitter_creds = {}
+configstuff = {}
+
+if "VCAP_SERVICES" in os.environ:
+    rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
+    for creds in rediscloud:
+        if creds['name'] == "vascodagama-db":
+            redis_rq_creds = creds['credentials']
+        elif creds['name'] == "vascodagama-images":
+            redis_images_creds = creds['credentials']
+    configstuff = json.loads(os.environ['config'])['configstuff']
+else:
+    cfg = Config(file('private_config_new.cfg'))
+    redis_images_creds = cfg.redis_images_creds
+    redis_rq_creds = cfg.redis_rq_creds
+    configstuff = cfg.configstuff
 
 
-
-cfg = Config(file('private_config.cfg'))
 r = redis.Redis(
-    host=cfg.redis_rq_host,
-    db=cfg.redis_rq_db,
-    password=cfg.redis_rq_password,
-    port=cfg.redis_rq_port
+    host=redis_rq_creds['hostname'],
+    db=0,
+    password=redis_rq_creds['password'],
+    port=int(redis_rq_creds['port'])
 )
 
-redis_images = redis.Redis(
-    host=cfg.redis_images_host,
-    db=cfg.redis_images_db,
-    password=cfg.redis_images_password,
-    port=cfg.redis_images_port
-)
+redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
+                           port=int(redis_images_creds['port']))
+
 q = Queue(connection=r)
 
 #Setup our redis and RQ connections.   see twitter_watch for more details.
@@ -76,7 +91,7 @@ q = Queue(connection=r)
 @job("dashboard", connection=r, timeout=3)
 def send_update(metric, value): #method for sending updates about metrics as needed.
     logger.info("Sending update for {}".format(metric))
-    dweepy.dweet_for(cfg.dweet_thing, {metric: value})
+    dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
 
 def update_dashboard(): # the primary function.
     logger.info("updating")

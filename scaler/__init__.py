@@ -2,11 +2,21 @@ from flask import Flask #import the Flask tool for writing web servers
 from functools import wraps #a decoration tool
 from flask import request, Response, jsonify #import some convinience functions from flask.
 import logging #logging
-import os #OS functions
+import os,json #OS functions
 from cloudfoundry import CloudFoundryInterface #The CF interface written by Matt Cowger
 from config import Config #Easy config files
 
-cfg = Config(file('private_config.cfg'))
+redis_rq_creds = {}
+redis_images_creds = {}
+s3_creds = {}
+twitter_creds = {}
+configstuff = {}
+
+if "VCAP_SERVICES" in os.environ:
+    configstuff = json.loads(os.environ['config'])['configstuff']
+else:
+    cfg = Config(file('private_config_new.cfg'))
+    configstuff = cfg.configstuff
 
 logging.basicConfig(level=logging.DEBUG) #setup basic debugging.
 
@@ -70,7 +80,7 @@ def apps():
 @requires_auth
 def scale_app(appname, target):
     logging.info("Got request to scale app \'{}\' to {}".format(appname, target))
-    cfi = CloudFoundryInterface('https://api.run.pivotal.io', username=cfg.cf_user, password=cfg.cf_pass) #again, connect to CF
+    cfi = CloudFoundryInterface('https://api.run.pivotal.io', username=configstuff['cf_user'], password=configstuff['cf_pass']) #again, connect to CF
     cfi.login() #and login
 
     app_list = [cf_app.name for cf_app in cfi.apps.itervalues()] # make sure the app we got was in the list of apps.
