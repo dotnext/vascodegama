@@ -4,6 +4,7 @@ import logging #with loggins
 import redis #and redis
 from config import Config # and the config files
 import os #and some OS functions
+import json #json functions
 import socket # i have no idea what this is
 from logging.handlers import SysLogHandler #import syslog handler
 
@@ -13,7 +14,20 @@ class ContextFilter(logging.Filter):
     record.hostname = ContextFilter.hostname
     return True
 
-cfg = Config(file('private_config.cfg'))
+
+redis_images_creds = {}
+
+if "VCAP_SERVICES" in os.environ:
+    rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
+    for creds in rediscloud:
+        if creds['name'] == "vascodagama-images":
+            redis_images_creds = creds['credentials']
+
+else:
+    cfg = Config(file('private_config_new.cfg'))
+    redis_images_creds = cfg.redis_images_creds
+
+
 logger = logging.getLogger('')
 logger.setLevel(logging.DEBUG)
 f = ContextFilter() #create context filter instance
@@ -41,7 +55,8 @@ logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.W
 app = Flask(__name__)
 
 #connect to redis
-redis_images = redis.Redis(host=cfg.redis_images_host, db=cfg.redis_images_db, port=cfg.redis_images_port,password=cfg.redis_images_password)
+redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
+                           port=int(redis_images_creds['port']))
 
 #gets a list of random URLS from refis.
 def get_random_urls(count=100):
