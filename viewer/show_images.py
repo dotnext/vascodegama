@@ -22,10 +22,11 @@ if "VCAP_SERVICES" in os.environ:
     for creds in rediscloud:
         if creds['name'] == "vascodagama-images":
             redis_images_creds = creds['credentials']
-
+    configstuff = json.loads(os.environ['config'])['configstuff']
 else:
     cfg = Config(file('private_config_new.cfg'))
     redis_images_creds = cfg.redis_images_creds
+    configstuff = cfg.configstuff
 
 
 logger = logging.getLogger('')
@@ -77,7 +78,8 @@ def get_random_urls(count=100):
 @app.route('/')
 def dashboard():
     urls = get_random_urls() # get the list of URLs
-    return render_template('default-us.html',urls=urls) #Responsed by feeding that list of URLs into the template, and returning the rendered HTML
+    hashtag = str(configstuff['hashtag'])
+    return render_template('default-us.html',urls=urls,hashtag=hashtag) #Responsed by feeding that list of URLs into the template, and returning the rendered HTML
 
 if __name__ == "__main__":
     port = int(os.getenv('VCAP_APP_PORT', '5000')) #liston in VCAP_APP_PORT if known, otherwise 5000
