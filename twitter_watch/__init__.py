@@ -200,7 +200,7 @@ def watch_stream(every=10):
     )  #setup the twitter streaming connectors.
     print(twitter_creds)
     tweet_stream = twitter_api.request('statuses/filter', {
-        'track': ("#selfie")})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
+        'track': (configstuff['hashtag'])})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
     for tweet in tweet_stream.get_iterator():  #for each one of thise
         logger.info("{}: Tweet Received")  #Log it
         redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
