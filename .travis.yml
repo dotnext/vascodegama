@@ -1,7 +1,19 @@
 language: python
 python:
-  - "2.7"
-# command to install dependencies
-install: "pip install -r requirements.txt"
-# command to run tests
+- '2.7'
+install: pip install -r requirements.txt
 script: nosetests
+notifications:
+  slack: devopsgeekweek:vVposxLhvzkt8itmS11Xx5QG
+deploy:
+  provider:
+    provider: cloudfoundry
+  api: https://api.run.pivotal.io
+  username: tyler.britten@emc.com
+  password:
+    secure: OdThK+tiTQ/AZKCL2gVPC9uZMluCKodCjK/1RrUvl4mWJe1M7PciBXJPHoZ82Z0sJoLK38UJroEj4t5Zf/99CNX1Hzgf/+27AeZgRbMSQdh0Gb7g3rDmF7+c0V33w2CjQR1J7Xc7HMDHB9LgBKGLGrTN6hDwkVuGWtsXxws/KIA=
+  organization: EMC Dev Ops Class
+  space: development
+  on:
+    repo: vmtyler/vascodegama
+    
