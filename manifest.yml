@@ -6,7 +6,8 @@ applications:
   instances: 1
   services:
    - vascodagama-db
-   - vascodagama-images
+   - twitter
+   - configstuff
   buildpack: python_buildpack
   command: python run.py
 
@@ -17,6 +18,8 @@ applications:
   services:
    - vascodagama-db
    - vascodagama-images
+   - configstuff
+   - s3_storage
   buildpack: python_buildpack
   command: rqworker -c settings
 
@@ -27,6 +30,8 @@ applications:
   services:
    - vascodagama-db
    - vascodagama-images
+   - configstuff
+   - s3_storage
   buildpack: python_buildpack
   command: rqworker -c settings
 
@@ -37,6 +42,7 @@ applications:
   services:
    - vascodagama-db
    - vascodagama-images
+   - configstuff
   buildpack: python_buildpack
   command: python run_dashboard.py
 
@@ -46,18 +52,18 @@ applications:
   host: vascodegama-scaler-dogw
   instances: 1
   services:
-   - vascodagama-db
-   - vascodagama-images
+  services:
+   - configstuff
   buildpack: python_buildpack
   command: python scaler/__init__.py
 
 - name: twitter-images
   memory: 128M
   no-route: false
-  host: vascodegama-dogw
+  host: vascodegama-emcworld
   instances: 1
   services:
-   - vascodagama-db
    - vascodagama-images
+   - configstuff
   buildpack: python_buildpack
   command: python viewer/show_images.py

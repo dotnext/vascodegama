@@ -13,7 +13,10 @@ twitter_creds = {}
 configstuff = {}
 
 if "VCAP_SERVICES" in os.environ:
-    configstuff = json.loads(os.environ['config'])['configstuff']
+    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
+    for configs in userservices:
+        if configs['name'] == "configstuff":
+            configstuff = configs['credentials']
 else:
     cfg = Config(file('private_config_new.cfg'))
     configstuff = cfg.configstuff

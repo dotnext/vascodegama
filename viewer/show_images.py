@@ -22,7 +22,10 @@ if "VCAP_SERVICES" in os.environ:
     for creds in rediscloud:
         if creds['name'] == "vascodagama-images":
             redis_images_creds = creds['credentials']
-    configstuff = json.loads(os.environ['config'])['configstuff']
+    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
+    for configs in userservices:
+        if configs['name'] == "configstuff":
+            configstuff = configs['credentials']
 else:
     cfg = Config(file('private_config_new.cfg'))
     redis_images_creds = cfg.redis_images_creds
@@ -34,11 +37,8 @@ logger.setLevel(logging.DEBUG)
 f = ContextFilter() #create context filter instance
 logger.addFilter(f) #add the filter to the logger
 
-syslog = SysLogHandler(address=('logs2.papertrailapp.com', 40001))
-
 formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
 
-syslog.setFormatter(formatter)
 
 # loggly_handler = loggly.handlers.HTTPSHandler(url="{}{}".format(credentials["Loggly"]["url"], "gui"))
 # loggly_handler.setLevel(logging.DEBUG)
@@ -46,8 +46,7 @@ syslog.setFormatter(formatter)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
-logger.addHandler(ch)
-logger.addHandler(syslog) #and finally add it to the logging instance
+logger.addHandler(ch) #and finally add it to the logging instance
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 #setup logging, check twitter_watch for details on what all the above does.
 

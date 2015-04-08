@@ -3,8 +3,6 @@ python:
 - '2.7'
 install: pip install -r requirements.txt
 script: nosetests
-notifications:
-  slack: devopsgeekweek:vVposxLhvzkt8itmS11Xx5QG
 deploy:
   provider:
     provider: cloudfoundry

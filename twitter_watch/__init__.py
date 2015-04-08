@@ -34,9 +34,14 @@ if "VCAP_SERVICES" in os.environ:
             redis_rq_creds = creds['credentials']
         elif creds['name'] == "vascodagama-images":
             redis_images_creds = creds['credentials']
-    s3_creds = json.loads(os.environ['config'])['s3_creds']
-    twitter_creds = json.loads(os.environ['config'])['twitter_creds']
-    configstuff = json.loads(os.environ['config'])['configstuff']
+    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
+    for configs in userservices:
+        if configs['name'] == "s3_storage":
+            s3_creds = configs['credentials']
+        elif configs['name'] == "twitter":
+            twitter_creds = configs['credentials']
+        elif configs['name'] == "configstuff":
+            configstuff = configs['credentials']
 else:
     cfg = Config(file('private_config_new.cfg'))
     redis_images_creds = cfg.redis_images_creds
@@ -59,18 +64,14 @@ logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
 f = ContextFilter()  # create context filter instance
 logger.addFilter(f)  # add the filter to the logger
 
-syslog = SysLogHandler(address=('logs2.papertrailapp.com', 40001))
-
 formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
 # and make them look prettier
-
-syslog.setFormatter(formatter)
 
 ch = logging.StreamHandler()  #set up a logging handler for the screen
 ch.setLevel(logging.INFO)  #make it only spit out INFO messages
 ch.setFormatter(formatter)  #make it use the pretty format
 logger.addHandler(ch)  #and finally add it to the logging instance
-logger.addHandler(syslog)  #and finally add it to the logging instance
+
 
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 #From this particular library, supress certain messages.
@@ -198,7 +199,6 @@ def watch_stream(every=10):
         access_token_key=twitter_creds['access_token'].encode('ascii','ignore'),
         access_token_secret=twitter_creds['token_secret'].encode('ascii','ignore')
     )  #setup the twitter streaming connectors.
-    print(twitter_creds)
     tweet_stream = twitter_api.request('statuses/filter', {
         'track': (configstuff['hashtag'])})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
     for tweet in tweet_stream.get_iterator():  #for each one of thise

@@ -35,10 +35,8 @@ logger = logging.getLogger('')
 logger.setLevel(logging.INFO)
 f = ContextFilter() #create context filter instance
 logger.addFilter(f) #add the filter to the logger
-syslog = SysLogHandler(address=('logs2.papertrailapp.com', 40001))
 
 formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
-syslog.setFormatter(formatter)
 
 # loggly_handler = loggly.handlers.HTTPSHandler(url="{}{}".format(credentials["Loggly"]["url"], "gui"))
 # loggly_handler.setLevel(logging.DEBUG)
@@ -65,7 +63,10 @@ if "VCAP_SERVICES" in os.environ:
             redis_rq_creds = creds['credentials']
         elif creds['name'] == "vascodagama-images":
             redis_images_creds = creds['credentials']
-    configstuff = json.loads(os.environ['config'])['configstuff']
+    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
+    for configs in userservices:
+        if configs['name'] == "configstuff":
+            configstuff = configs['credentials']
 else:
     cfg = Config(file('private_config_new.cfg'))
     redis_images_creds = cfg.redis_images_creds
