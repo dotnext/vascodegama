@@ -4,6 +4,11 @@ from flask import request, Response, jsonify #import some convinience functions 
 import logging #logging
 import os,json #OS functions
 from cloudfoundry import CloudFoundryInterface #The CF interface written by Matt Cowger
+import redis
+import boto  # the library for interacting with AWS services
+import socket  # i have no idea what this is
+from boto.s3.key import Key  # Class to represent a S3 key
+from boto.s3.lifecycle import Lifecycle, Expiration  # classes so we can set lifecycles/expirations on objects
 from config import Config #Easy config files
 
 redis_rq_creds = {}
@@ -12,10 +17,42 @@ s3_creds = {}
 twitter_creds = {}
 configstuff = {}
 
+class ContextFilter(logging.Filter):
+    hostname = socket.gethostname()
+
+    def filter(self, record):
+        record.hostname = ContextFilter.hostname
+        return True
+
+logger = logging.getLogger('')  # Grab the logging instance for our app, so we can make changes
+logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
+f = ContextFilter()  # create context filter instance
+logger.addFilter(f)  # add the filter to the logger
+
+formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
+# and make them look prettier
+
+ch = logging.StreamHandler()  #set up a logging handler for the screen
+ch.setLevel(logging.INFO)  #make it only spit out INFO messages
+ch.setFormatter(formatter)  #make it use the pretty format
+logger.addHandler(ch)  #and finally add it to the logging instance
+
+
+logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
+#From this particular library, supress certain messages.
+
+
+
 if "VCAP_SERVICES" in os.environ:
+    rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
+    for creds in rediscloud:
+        if creds['name'] == "vascodagama-images":
+            redis_images_creds = creds['credentials']
     userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
     for configs in userservices:
-        if configs['name'] == "configstuff":
+        if configs['name'] == "s3_storage":
+            s3_creds = configs['credentials']
+        elif configs['name'] == "configstuff":
             configstuff = configs['credentials']
 else:
     cfg = Config(file('private_config_new.cfg'))
@@ -23,14 +60,17 @@ else:
 
 logging.basicConfig(level=logging.DEBUG) #setup basic debugging.
 
+redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
+                           port=int(redis_images_creds['port']))
+
 
 
 def check_auth(username, password):
     """This function is called to check if a username /
     password combination is valid.  It only accepts 1 set of values :). TODO.
     """
-    return username == 'test' and password == 'emc'
-    #TODO Fix this!
+    return username == configstuff['cf_user'] and password == configstuff['cf_pass']
+
 
 
 def authenticate():
@@ -93,6 +133,20 @@ def scale_app(appname, target):
         cfi.scale_app(cfi.get_app_by_name(appname),target) #and if it is, scale it as requested.
         return jsonify({"status":"success"})
 
+@app.route('/reset')
+@requires_auth
+def reset_app():
+    logging.info("Got request to reset. Will clear the db and bucket")
+    logger.debug("flushing redis image db")
+    redis_images.flushdb()
+    logger.debug("opening s3 connection")
+    s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'], host=s3_creds['url'])  #set up an S3 style connections
+    logger.debug("Getting bucket")
+    bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
+    logger.debug("deleting bucket contents")
+    for x in bucket.list():
+        bucket.delete_key(x.key)
+    return jsonify({"status":"success"})
 
 
 if __name__ == '__main__':
