@@ -49,7 +49,7 @@ applications:
 - name: twitter-scaler
   memory: 128M
   no-route: false
-  host: vascodegama-scaler-dogw
+  host: vascodagama-emcworld-scaler
   instances: 1
   services:
   services:
@@ -60,7 +60,7 @@ applications:
 - name: twitter-images
   memory: 128M
   no-route: false
-  host: vascodegama-emcworld
+  host: vascodagama-emcworld
   instances: 1
   services:
    - vascodagama-images
