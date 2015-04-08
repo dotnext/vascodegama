@@ -11,7 +11,6 @@ from rq.decorators import job #funtion decoration
 import dweepy #see dweet.io
 import os,json
 import socket # i have no idea what this is
-from logging.handlers import SysLogHandler #import syslog handler
 
 
 
@@ -44,8 +43,7 @@ formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_pho
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 ch.setFormatter(formatter)
-logger.addHandler(ch)
-logger.addHandler(syslog) #and finally add it to the logging instance
+logger.addHandler(ch) #and finally add it to the logging instance
 
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
 ###Setup all our logging, see twitter_watch for more details.
