@@ -46,7 +46,9 @@ logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.W
 if "VCAP_SERVICES" in os.environ:
     rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
     for creds in rediscloud:
-        if creds['name'] == "vascodagama-images":
+        if creds['name'] == "vascodagama-db":
+            redis_rq_creds = creds['credentials']
+        elif creds['name'] == "vascodagama-images":
             redis_images_creds = creds['credentials']
     userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
     for configs in userservices:
@@ -56,13 +58,36 @@ if "VCAP_SERVICES" in os.environ:
             configstuff = configs['credentials']
 else:
     cfg = Config(file('private_config_new.cfg'))
+    redis_images_creds = cfg.redis_images_creds
+    redis_rq_creds = cfg.redis_rq_creds
+    s3_creds = cfg.s3_creds
+    twitter_creds = cfg.twitter_creds
     configstuff = cfg.configstuff
 
 logging.basicConfig(level=logging.DEBUG) #setup basic debugging.
 
 redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
                            port=int(redis_images_creds['port']))
+redis_queue = redis.Redis(
+    host=redis_rq_creds['hostname'],
+    db=0,
+    password=redis_rq_creds['password'],
+    port=int(redis_rq_creds['port'])
+)
 
+def clear_app():
+    logging.info("Got request to reset. Will clear the db and bucket")
+    logger.debug("flushing redis image db")
+    redis_images.flushdb()
+    logger.debug("opening s3 connection")
+    s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'], host=s3_creds['url'])  #set up an S3 style connections
+    logger.debug("Getting bucket")
+    bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
+    logger.debug("deleting bucket contents")
+    for x in bucket.list():
+        logger.info("Deleted image {} from object store".format(x.key))
+        bucket.delete_key(x.key)
+    return
 
 
 def check_auth(username, password):
@@ -133,19 +158,19 @@ def scale_app(appname, target):
         cfi.scale_app(cfi.get_app_by_name(appname),target) #and if it is, scale it as requested.
         return jsonify({"status":"success"})
 
+
+@app.route('/newhashtag/<hashtag>')
+@requires_auth
+def change_hashtag(hashtag):
+    logger.info("Changing hashtag to {}".format(hashtag))
+    redis_queue.set("hashtag",hashtag)
+    clear_app()
+    return jsonify({"status":"success"})
+
 @app.route('/reset')
 @requires_auth
 def reset_app():
-    logging.info("Got request to reset. Will clear the db and bucket")
-    logger.debug("flushing redis image db")
-    redis_images.flushdb()
-    logger.debug("opening s3 connection")
-    s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'], host=s3_creds['url'])  #set up an S3 style connections
-    logger.debug("Getting bucket")
-    bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
-    logger.debug("deleting bucket contents")
-    for x in bucket.list():
-        bucket.delete_key(x.key)
+    clear_app()
     return jsonify({"status":"success"})
 
 

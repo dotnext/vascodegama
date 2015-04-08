@@ -20,7 +20,9 @@ redis_images_creds = {}
 if "VCAP_SERVICES" in os.environ:
     rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
     for creds in rediscloud:
-        if creds['name'] == "vascodagama-images":
+        if creds['name'] == "vascodagama-db":
+            redis_rq_creds = creds['credentials']
+        elif creds['name'] == "vascodagama-images":
             redis_images_creds = creds['credentials']
     userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
     for configs in userservices:
@@ -29,6 +31,9 @@ if "VCAP_SERVICES" in os.environ:
 else:
     cfg = Config(file('private_config_new.cfg'))
     redis_images_creds = cfg.redis_images_creds
+    redis_rq_creds = cfg.redis_rq_creds
+    s3_creds = cfg.s3_creds
+    twitter_creds = cfg.twitter_creds
     configstuff = cfg.configstuff
 
 
@@ -57,6 +62,13 @@ app = Flask(__name__)
 #connect to redis
 redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
                            port=int(redis_images_creds['port']))
+#Setup a connection that will be used by RQ (each redis connection instance only talks to 1 DB)
+redis_queue = redis.Redis(
+    host=redis_rq_creds['hostname'],
+    db=0,
+    password=redis_rq_creds['password'],
+    port=int(redis_rq_creds['port'])
+)
 
 #gets a list of random URLS from refis.
 def get_random_urls(count=100):
@@ -77,7 +89,7 @@ def get_random_urls(count=100):
 @app.route('/')
 def dashboard():
     urls = get_random_urls() # get the list of URLs
-    hashtag = str(configstuff['hashtag'])
+    hashtag = str(redis_queue.get("hashtag"))
     return render_template('default-us.html',urls=urls,hashtag=hashtag) #Responsed by feeding that list of URLs into the template, and returning the rendered HTML
 
 if __name__ == "__main__":

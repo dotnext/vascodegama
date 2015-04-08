@@ -19,6 +19,7 @@ from rq import Queue  # RQ, the job queueing system we use
 from rq.decorators import job  # And the function decoration for it.
 import dweepy  # the library we use for sending status updates.  Check http://dweet.io
 import os, json
+import scaler
 
 redis_rq_creds = {}
 redis_images_creds = {}
@@ -198,18 +199,24 @@ def watch_stream(every=10):
         access_token_key=twitter_creds['access_token'].encode('ascii','ignore'),
         access_token_secret=twitter_creds['token_secret'].encode('ascii','ignore')
     )  #setup the twitter streaming connectors.
-    tweet_stream = twitter_api.request('statuses/filter', {
-        'track': (configstuff['hashtag'])})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
-    for tweet in tweet_stream.get_iterator():  #for each one of thise
-        logger.info("{}: Tweet Received")  #Log it
-        redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
-        if not tweet['retweeted'] and 'entities' in tweet and 'media' in tweet['entities'] and \
-                        tweet['entities']['media'][0][
-                            'type'] == 'photo':  #As long as it has all the right properties and has a photo.
-            logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
-            q.enqueue(
-                get_image,
-                tweet['entities']['media'][0]['media_url'],
-                timeout=60,
-                ttl=600
-            )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
+    restart = True
+    while restart:
+        hashtag = redis_queue.get("hashtag")
+        logger.info("Hashtage changed to {}".format(hashtag))
+        tweet_stream = twitter_api.request('statuses/filter', {
+            'track': (hashtag)})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
+        for tweet in tweet_stream.get_iterator():  #for each one of thise
+            if hashtag != redis_queue.get("hashtag"):
+                break
+            logger.info("{}: Tweet Received")  #Log it
+            redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
+            if not tweet['retweeted'] and 'entities' in tweet and 'media' in tweet['entities'] and \
+                            tweet['entities']['media'][0][
+                                'type'] == 'photo':  #As long as it has all the right properties and has a photo.
+                logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
+                q.enqueue(
+                    get_image,
+                    tweet['entities']['media'][0]['media_url'],
+                    timeout=60,
+                    ttl=600
+                )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s

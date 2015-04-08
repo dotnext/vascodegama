@@ -53,6 +53,7 @@ applications:
   instances: 1
   services:
   services:
+   - vascodagama-db
    - configstuff
   buildpack: python_buildpack
   command: python scaler/__init__.py
@@ -63,6 +64,7 @@ applications:
   host: vascodagama-emcworld
   instances: 1
   services:
+   - vascodagama-db
    - vascodagama-images
    - configstuff
   buildpack: python_buildpack
