@@ -3,16 +3,3 @@ python:
 - '2.7'
 install: pip install -r requirements.txt
 script: nosetests
-deploy:
-  edge: True
-  provider:
-    provider: cloudfoundry
-  api: https://api.run.pivotal.io
-  username: me@vmtyler.com
-  password:
-    secure: NApGxiPhdb7T7DO2U+fSuXVdGPB2tkmWzID99tN2w1NZrNVkJsOVxIWbEzSvvPiskZeIcINRY3RRS5k945hSdvNvNfYWCx5NKQzJyzBzp0NXZ7esxqDVqLUBIhG+1lVf150s0Q06j8rpU2r7hwWiywWE+k6HO/wL2iI8Xaemj2U=
-  organization: vmtyler
-  space: development
-  on:
-    repo: vmtyler/vascodegama
-    tags: True
