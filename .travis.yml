@@ -4,6 +4,7 @@ python:
 install: pip install -r requirements.txt
 script: nosetests
 deploy:
+  edge: True
   provider:
     provider: cloudfoundry
   api: https://api.run.pivotal.io
@@ -14,3 +15,4 @@ deploy:
   space: development
   on:
     repo: vmtyler/vascodegama
+    tags: True
