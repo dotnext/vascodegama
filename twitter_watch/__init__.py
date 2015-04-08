@@ -8,7 +8,6 @@ from pprint import pprint, pformat  # pprint can pretty print complex data struc
 import logging  # the standard python logging library
 import boto  # the library for interacting with AWS services
 import socket  # i have no idea what this is
-from logging.handlers import SysLogHandler  # import syslog handler
 from boto.s3.key import Key  # Class to represent a S3 key
 from boto.s3.lifecycle import Lifecycle, Expiration  # classes so we can set lifecycles/expirations on objects
 import time  # basic time handling library
