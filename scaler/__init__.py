@@ -76,12 +76,15 @@ redis_queue = redis.Redis(
 )
 
 def clear_app():
+    hashtag = redis_queue.get("hashtag")
     logging.info("Got request to reset. Will clear the db and bucket")
     logger.debug("flushing redis image db")
     redis_images.flushdb()
     logger.debug("flushing redis queue db")
     redis_queue.flushdb()
     logger.debug("opening s3 connection")
+    logger.debug("repopulating the hashtag")
+    redis_queue.set("hashtag",hashtag)
     s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'], host=s3_creds['url'])  #set up an S3 style connections
     logger.debug("Getting bucket")
     bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
