@@ -23,18 +23,6 @@ applications:
   buildpack: python_buildpack
   command: rqworker -c settings
 
-- name: twitter-dashworker
-  memory: 128M
-  no-route: true
-  instances: 1
-  services:
-   - vascodagama-db
-   - vascodagama-images
-   - configstuff
-   - s3_storage
-  buildpack: python_buildpack
-  command: rqworker -c settings
-
 - name: twitter-dashboard
   memory: 128M
   no-route: true
@@ -56,7 +44,7 @@ applications:
    - vascodagama-db
    - configstuff
   buildpack: python_buildpack
-  command: python scaler/__init__.py
+  command: python scaler/scaler.py
 
 - name: twitter-images
   memory: 128M

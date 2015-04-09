@@ -14,6 +14,6 @@ else:
     redis_images_creds = cfg.redis_images_creds
     redis_rq_creds = cfg.redis_rq_creds
 
-QUEUES = ['default', 'dashboard']
+QUEUES = ['dashboard', 'default']
 REDIS_URL = "redis://:{password}@{hostname}:{port}/0".format(password=redis_rq_creds['password'], hostname=redis_rq_creds['hostname'],port=int(redis_rq_creds['port']))
 

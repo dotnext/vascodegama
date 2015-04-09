@@ -1,4 +1,4 @@
-from dashboard import update_dashboard
+from dashboard.dashboard import update_dashboard
 import time
 
 if __name__ == "__main__":
