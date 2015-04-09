@@ -90,13 +90,12 @@ redis_queue = redis.Redis(
 logger.debug("Setting up the queue")
 q = Queue(connection=redis_queue, async=True)
 
-
-@job("dashboard", connection=redis_queue,timeout=10)  #When this is run as a job, use apecific queue (dashboard) with specific timeouts.
-def send_update(metric, value):
-    """
-    Accepts a metric name and a value, and sends it dweet.io
-    """
-    dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
+# @job("dashboard", connection=redis_queue,timeout=10)  #When this is run as a job, use apecific queue (dashboard) with specific timeouts.
+# def send_update(metric, value):
+#     """
+#     Accepts a metric name and a value, and sends it dweet.io
+#     """
+#     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
 
 def get_image(image_url):
     """

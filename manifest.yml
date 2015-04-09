@@ -9,7 +9,7 @@ applications:
    - twitter
    - configstuff
   buildpack: python_buildpack
-  command: python run.py
+  command: python run_watcher.py
 
 - name: twitter-worker
   memory: 128M
