@@ -210,9 +210,13 @@ def watch_stream(every=10):
                 break
             logger.info("{}: Tweet Received")  #Log it
             redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
-            if not tweet['retweeted'] and 'entities' in tweet and 'media' in tweet['entities'] and \
-                            tweet['entities']['media'][0][
-                                'type'] == 'photo':  #As long as it has all the right properties and has a photo.
+
+            if 'retweeted' in tweet \
+                and not tweet['retweeted']\
+                and 'entities' in tweet\
+                and 'media' in tweet['entities']\
+                and tweet['entities']['media'][0]['type'] == 'photo':  #As long as it has all the right properties and has a photo.
+
                 logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
                 q.enqueue(
                     get_image,
