@@ -18,21 +18,7 @@ s3_creds = {}
 twitter_creds = {}
 configstuff = {}
 
-logger = logging.getLogger()  # Grab the logging instance for our app, so we can make changes
-logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
-
-formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] [%(levelname)s] %(message)s")
-# and make them look prettier
-
-ch = logging.StreamHandler()  #set up a logging handler for the screen
-ch.setLevel(logging.DEBUG)  #make it only spit out INFO messages
-ch.setFormatter(formatter)  #make it use the pretty format
-logger.addHandler(ch)  #and finally add it to the logging instance
-
-
-logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
-logging.getLogger("oauthlib").setLevel(logging.WARN)
-logging.getLogger("requests_oauthlib").setLevel(logging.WARN)
+logger = logging.getLogger('vascodagama.scaler')
 
 
 if "VCAP_SERVICES" in os.environ:

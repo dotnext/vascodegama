@@ -27,6 +27,7 @@ redis_images_creds = {}
 s3_creds = {}
 twitter_creds = {}
 configstuff = {}
+logging_config = {}
 
 if "VCAP_SERVICES" in os.environ:
     rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
@@ -43,6 +44,7 @@ if "VCAP_SERVICES" in os.environ:
             twitter_creds = configs['credentials']
         elif configs['name'] == "configstuff":
             configstuff = configs['credentials']
+
 else:
     cfg = Config(file('private_config_new.cfg'))
     redis_images_creds = cfg.redis_images_creds
@@ -53,30 +55,20 @@ else:
 
 
 
-logger = logging.getLogger(__name__)  # Grab the logging instance for our app, so we can make changes
-logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
 
-formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] [%(levelname)s] %(message)s")
-# and make them look prettier
-
-ch = logging.StreamHandler()  #set up a logging handler for the screen
-ch.setLevel(logging.DEBUG)  #make it only spit out INFO messages
-ch.setFormatter(formatter)  #make it use the pretty format
-logger.addHandler(ch)  #and finally add it to the logging instance
+worker_logger = logging.getLogger('vascodagama.worker')
+worker_logger.setLevel(logging.DEBUG)
+watcher_logger = logging.getLogger('vascodagama.watcher')
+watcher_logger.setLevel(logging.DEBUG)
 
 
-logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
-logging.getLogger("oauthlib").setLevel(logging.WARN)
-logging.getLogger("requests_oauthlib").setLevel(logging.WARN)
 
-#From this particular library, supress certain messages.
-
-logger.debug("Connecting to Redis for images")
+logging.debug("Connecting to Redis for images")
 #setup a connection to redis for the images database (Redis can have multiple databases)
 redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
                            port=int(redis_images_creds['port']))
 
-logger.debug("Connecting to Redis for RQ")
+#basic_logger.debug("Connecting to Redis for RQ")
 #Setup a connection that will be used by RQ (each redis connection instance only talks to 1 DB)
 redis_queue = redis.Redis(
     host=redis_rq_creds['hostname'],
@@ -87,7 +79,7 @@ redis_queue = redis.Redis(
 
 #Based on that connection, setup our job queue, and set async=True to tell it we want to run jobs out-of-band.
 #We could set it to 'True' if we wanted it to run jobs right away.  Sometimes useful for debugging.
-logger.debug("Setting up the queue")
+logging.debug("Setting up the queue")
 q = Queue(connection=redis_queue, async=True)
 
 # @job("dashboard", connection=redis_queue,timeout=10)  #When this is run as a job, use apecific queue (dashboard) with specific timeouts.
@@ -128,7 +120,7 @@ def store_to_redis(image_key):
     tx.expire(image_key.key, 60 * 60 * 23)  # Expire the entire redis key in 23 hours
 
     tx.execute()  #Run the transaction.
-    logger.info("Stored image to redis: {}".format(image_key))
+    worker_logger.info("Stored image to redis: {}".format(image_key))
 
 def process_image(image, random_sleep=1):
     image = image.filter(ImageFilter.BLUR)  #run the image through a blur filter
@@ -143,33 +135,33 @@ def retrieve_image(image_url):
     Retrieves the image from the web
     """
     http = requests.session()
-    logger.info("Capturing Image {}".format(image_url))
+    worker_logger.info("Capturing Image {}".format(image_url))
     im = None
     try:
         im = Image.open(StringIO(http.get(image_url).content))  #Try to get the image, but if it fails
     except IOError as e:
-        logger.critical(e)  ##Record what happened and return a None
+        worker_logger.critical(e)  ##Record what happened and return a None
         return None
-    logger.info("Image Captured: {}".format(im))
+    worker_logger.info("Image Captured: {}".format(im))
     return im
 
 def store_to_vipr(image_data):
-    logger.debug("Storing to ViPR")
-    logger.debug("Connecting to ViPR")
+    worker_logger.debug("Storing to ViPR")
+    worker_logger.debug("Connecting to ViPR")
     s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'],
                              host=s3_creds['url'])  #set up an S3 style connections
-    logger.debug("Getting bucket")
+    worker_logger.debug("Getting bucket")
     bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
     lifecycle = Lifecycle()  #new lifecycle managers
-    logger.debug("Setting Bucket RulesViPR")
-    lifecycle.add_rule('Expire 1 day', status='Enabled', expiration=Expiration(days=1))  #make sure the bucket it set to only allow 1 day old images.  Probably dont need to do this every time.  TODO!
+    #worker_logger.debug("Setting Bucket RulesViPR")
+    #lifecycle.add_rule('Expire 1 day', status='Enabled', expiration=Expiration(days=1))  #make sure the bucket it set to only allow 1 day old images.  Probably dont need to do this every time.  TODO!
 
     image_guid = str(uuid.uuid4())  #Pick a random UUID!
     k = Key(bucket)  #and gimme a new key to refer to file object.
     k.key = "{}.jpg".format(image_guid)  #give it a name based on the UUID.
-    logger.debug("Uploading to ViPR")
+    worker_logger.debug("Uploading to ViPR")
     k.set_contents_from_string(image_data.getvalue())  #upload it.
-    logger.info("Stored image {} to object store".format(k.key))
+    worker_logger.info("Stored image {} to object store".format(k.key))
     return k  #and return that key info.
 
 def watch_stream(every=10):
@@ -181,19 +173,19 @@ def watch_stream(every=10):
         access_token_secret=twitter_creds['token_secret'].encode('ascii','ignore')
     )  #setup the twitter streaming connectors.
 
-    logger.info("Waiting for tweets...")
+    watcher_logger.info("Waiting for tweets...")
     while True:
         try:
             #tweet_stream = twitter_api.request('statuses/filter', {'track': hashtag})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
             for tweet in twitter_api.request('statuses/filter', {'track': hashtag}).get_iterator():  #for each one of thise
                 if hashtag != redis_queue.get("hashtag"):
-                    logger.info("Hashtag changed from {}, breaking loop to restart with new hashtag".format(hashtag))
+                    watcher_logger.info("Hashtag changed from {}, breaking loop to restart with new hashtag".format(hashtag))
                     hashtag = redis_queue.get("hashtag")
                     break
-                logger.info("Tweet Received: {}".format(hashtag))  #Log it
+                watcher_logger.info("Tweet Received: {}".format(hashtag))  #Log it
                 redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
                 if tweet['entities']['media'][0]['type'] == 'photo': #Look for the photo.  If its not there, will throw a KeyError, caught below
-                    logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
+                    watcher_logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
                     q.enqueue(
                         get_image,
                         tweet['entities']['media'][0]['media_url'],
@@ -201,6 +193,6 @@ def watch_stream(every=10):
                         ttl=600
                     )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
         except KeyError as e:
-            logger.warn("Caught a key error for tweet, ignoring: {}".format(e.message))
+            watcher_logger.warn("Caught a key error for tweet, ignoring: {}".format(e.message))
         except Exception as e:
-            logger.critical("UNEXPECTED EXCEPTION: {}".format(e))
+            watcher_logger.critical("UNEXPECTED EXCEPTION: {}".format(e))
