@@ -201,11 +201,16 @@ def get_exec_time():
     return round(average,2) #Return the average.
 
 def get_tweet_count():
-    return int(r.get("stats:tweets")) #simple get from redis
+    try:
+        return int(r.get("stats:tweets"))
+    except:
+        return 0 #simple get from redis
 
 def get_tweets_processed():
-    return int(r.get("stats:tweets-processed")) #simple get from redis.
-
+    try:
+        return int(r.get("stats:tweets-processed")) #simple get from redis.
+    except:
+        return 0
 
 if __name__ == "__main__":
     while True:
