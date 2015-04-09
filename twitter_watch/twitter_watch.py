@@ -187,10 +187,10 @@ def watch_stream(every=10):
             #tweet_stream = twitter_api.request('statuses/filter', {'track': hashtag})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
             for tweet in twitter_api.request('statuses/filter', {'track': hashtag}).get_iterator():  #for each one of thise
                 if hashtag != redis_queue.get("hashtag"):
-                    logger.info("Hashtag changed to {}, breaking loop to restart with new hashtag".format(hashtag))
+                    logger.info("Hashtag changed from {}, breaking loop to restart with new hashtag".format(hashtag))
                     hashtag = redis_queue.get("hashtag")
                     break
-                logger.info("Tweet Received")  #Log it
+                logger.info("Tweet Received: {}".format(hashtag))  #Log it
                 redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
                 if tweet['entities']['media'][0]['type'] == 'photo': #Look for the photo.  If its not there, will throw a KeyError, caught below
                     logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
