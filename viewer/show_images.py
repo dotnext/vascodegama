@@ -34,7 +34,7 @@ else:
 logger = logging.getLogger()  # Grab the logging instance for our app, so we can make changes
 logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
 
-formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
+formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] [%(levelname)s] %(message)s")
 # and make them look prettier
 
 ch = logging.StreamHandler()  #set up a logging handler for the screen
