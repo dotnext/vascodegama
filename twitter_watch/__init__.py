@@ -91,15 +91,12 @@ logger.debug("Setting up the queue")
 q = Queue(connection=redis_queue, async=True)
 
 
-@job("dashboard", connection=redis_queue,
-     timeout=10)  #When this is run as a job, use apecific queue (dashboard) with specific timeouts.
+@job("dashboard", connection=redis_queue,timeout=10)  #When this is run as a job, use apecific queue (dashboard) with specific timeouts.
 def send_update(metric, value):
     """
     Accepts a metric name and a value, and sends it dweet.io
     """
     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
-
-
 
 def get_image(image_url):
     """
@@ -116,8 +113,6 @@ def get_image(image_url):
     if random.randint(1, 10) < 5:  #about 50% of the time we should
         redis_queue.lpush("stats:execution-times", end - start)  #send in an update on execution time
     redis_queue.incr("stats:tweets-processed")  #and also record that we processed another tweet.
-
-
 
 def store_to_redis(image_key):
     """
@@ -136,8 +131,6 @@ def store_to_redis(image_key):
     tx.execute()  #Run the transaction.
     logger.info("Stored image to redis: {}".format(image_key))
 
-
-
 def process_image(image, random_sleep=1):
     image = image.filter(ImageFilter.BLUR)  #run the image through a blur filter
     final_image = StringIO()  #and now, since the PIL library requires a 'file like' object to store its data in, and I dont want to write a temp file, setup a stringIO to hold it.
@@ -145,8 +138,6 @@ def process_image(image, random_sleep=1):
     if random_sleep:  #added a random sleep here to make it seem like the process takes longer.  Simulates more expensive processing.
         time.sleep(random.randint(1, random_sleep))
     return final_image  #and give back the image
-
-
 
 def retrieve_image(image_url):
     """
@@ -163,8 +154,6 @@ def retrieve_image(image_url):
     logger.info("Image Captured: {}".format(im))
     return im
 
-
-
 def store_to_vipr(image_data):
     logger.debug("Storing to ViPR")
     logger.debug("Connecting to ViPR")
@@ -174,8 +163,7 @@ def store_to_vipr(image_data):
     bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
     lifecycle = Lifecycle()  #new lifecycle managers
     logger.debug("Setting Bucket RulesViPR")
-    lifecycle.add_rule('Expire 1 day', status='Enabled', expiration=Expiration(
-        days=1))  #make sure the bucket it set to only allow 1 day old images.  Probably dont need to do this every time.  TODO!
+    lifecycle.add_rule('Expire 1 day', status='Enabled', expiration=Expiration(days=1))  #make sure the bucket it set to only allow 1 day old images.  Probably dont need to do this every time.  TODO!
 
     image_guid = str(uuid.uuid4())  #Pick a random UUID!
     k = Key(bucket)  #and gimme a new key to refer to file object.
@@ -185,37 +173,34 @@ def store_to_vipr(image_data):
     logger.info("Stored image {} to object store".format(k.key))
     return k  #and return that key info.
 
-
-
 def watch_stream(every=10):
+    hashtag = redis_queue.get("hashtag")
     twitter_api = TwitterAPI(
         consumer_key=twitter_creds['consumer_key'].encode('ascii','ignore'),
         consumer_secret=twitter_creds['consumer_secret'].encode('ascii','ignore'),
         access_token_key=twitter_creds['access_token'].encode('ascii','ignore'),
         access_token_secret=twitter_creds['token_secret'].encode('ascii','ignore')
     )  #setup the twitter streaming connectors.
-    restart = True
-    while restart:
-        hashtag = redis_queue.get("hashtag")
-        logger.info("Hashtage changed to {}".format(hashtag))
-        tweet_stream = twitter_api.request('statuses/filter', {
-            'track': (hashtag)})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
-        for tweet in tweet_stream.get_iterator():  #for each one of thise
-            if hashtag != redis_queue.get("hashtag"):
-                break
-            logger.info("{}: Tweet Received")  #Log it
-            redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
 
-            if 'retweeted' in tweet \
-                and not tweet['retweeted']\
-                and 'entities' in tweet\
-                and 'media' in tweet['entities']\
-                and tweet['entities']['media'][0]['type'] == 'photo':  #As long as it has all the right properties and has a photo.
-
-                logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
-                q.enqueue(
-                    get_image,
-                    tweet['entities']['media'][0]['media_url'],
-                    timeout=60,
-                    ttl=600
-                )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
+    while True:
+        try:
+            #tweet_stream = twitter_api.request('statuses/filter', {'track': hashtag})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
+            for tweet in twitter_api.request('statuses/filter', {'track': hashtag}).get_iterator():  #for each one of thise
+                if hashtag != redis_queue.get("hashtag"):
+                    logger.info("Hashtag changed to {}, breaking loop to restart with new hashtag".format(hashtag))
+                    hashtag = redis_queue.get("hashtag")
+                    break
+                logger.info("Tweet Received")  #Log it
+                redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
+                if tweet['entities']['media'][0]['type'] == 'photo': #Look for the photo.  If its not there, will throw a KeyError, caught below
+                    logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
+                    q.enqueue(
+                        get_image,
+                        tweet['entities']['media'][0]['media_url'],
+                        timeout=60,
+                        ttl=600
+                    )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
+        except KeyError as e:
+            logger.warn("Caught a key error for tweet, ignoring: {}".format(e.message))
+        except Exception as e:
+            logger.critical("UNEXPECTED EXCEPTION: {}".format(e))
