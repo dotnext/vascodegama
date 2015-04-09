@@ -1,103 +1,30 @@
-from __future__ import print_function  # force the use of print(X) rather than print X
-from config import Config  # import a module that makes config files easier
-from TwitterAPI import TwitterAPI  # The twitter API
-from PIL import ImageFilter, Image  # The Python Imaging Library
-from StringIO import StringIO  # StringIO lets you treat a string in memory like a file handle
-import requests  # request is a great library for interacting with web services
-from pprint import pprint, pformat  # pprint can pretty print complex data structures
-import logging  # the standard python logging library
-import boto  # the library for interacting with AWS services
-import socket  # i have no idea what this is
-from boto.s3.key import Key  # Class to represent a S3 key
-from boto.s3.lifecycle import Lifecycle, Expiration  # classes so we can set lifecycles/expirations on objects
-import time  # basic time handling library
-import redis  # redis library
-import uuid  # library for creating unique IDs
-import random  # lirbary for random numbers
-from rq import Queue  # RQ, the job queueing system we use
-from rq.decorators import job  # And the function decoration for it.
-import dweepy  # the library we use for sending status updates.  Check http://dweet.io
-import os, json
+import time
+import random
+import logging, logging.config, json
+import requests
+import boto
+import uuid
+from TwitterAPI import TwitterAPI
+from boto.s3.key import Key
+from StringIO import StringIO
+from PIL import ImageFilter, Image
+import utils
+
+logging.config.dictConfig(utils.get_log_dict())
+worker_logger = logging.getLogger("vascodagama.worker")
+watcher_logger = logging.getLogger("vascodagama.watcher")
 
 
-
-
-redis_rq_creds = {}
-redis_images_creds = {}
-s3_creds = {}
-twitter_creds = {}
-configstuff = {}
-logging_config = {}
-
-if "VCAP_SERVICES" in os.environ:
-    rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
-    for creds in rediscloud:
-        if creds['name'] == "vascodagama-db":
-            redis_rq_creds = creds['credentials']
-        elif creds['name'] == "vascodagama-images":
-            redis_images_creds = creds['credentials']
-    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
-    for configs in userservices:
-        if configs['name'] == "s3_storage":
-            s3_creds = configs['credentials']
-        elif configs['name'] == "twitter":
-            twitter_creds = configs['credentials']
-        elif configs['name'] == "configstuff":
-            configstuff = configs['credentials']
-
-else:
-    cfg = Config(file('private_config_new.cfg'))
-    redis_images_creds = cfg.redis_images_creds
-    redis_rq_creds = cfg.redis_rq_creds
-    s3_creds = cfg.s3_creds
-    twitter_creds = cfg.twitter_creds
-    configstuff = cfg.configstuff
-
-
-
-
-worker_logger = logging.getLogger('vascodagama.worker')
-worker_logger.setLevel(logging.DEBUG)
-watcher_logger = logging.getLogger('vascodagama.watcher')
-watcher_logger.setLevel(logging.DEBUG)
-
-
-
-logging.debug("Connecting to Redis for images")
-#setup a connection to redis for the images database (Redis can have multiple databases)
-redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
-                           port=int(redis_images_creds['port']))
-
-#basic_logger.debug("Connecting to Redis for RQ")
-#Setup a connection that will be used by RQ (each redis connection instance only talks to 1 DB)
-redis_queue = redis.Redis(
-    host=redis_rq_creds['hostname'],
-    db=0,
-    password=redis_rq_creds['password'],
-    port=int(redis_rq_creds['port'])
-)
-
-#Based on that connection, setup our job queue, and set async=True to tell it we want to run jobs out-of-band.
-#We could set it to 'True' if we wanted it to run jobs right away.  Sometimes useful for debugging.
-logging.debug("Setting up the queue")
-q = Queue(connection=redis_queue, async=True)
-
-# @job("dashboard", connection=redis_queue,timeout=10)  #When this is run as a job, use apecific queue (dashboard) with specific timeouts.
-# def send_update(metric, value):
-#     """
-#     Accepts a metric name and a value, and sends it dweet.io
-#     """
-#     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
-
-def get_image(image_url):
+def get_image(image_url, actually_store=True):
     """
     This is the job that gets queued when a tweet needs to be analyzed
     """
+    redis_queue = utils.get_images_redis_conn()
     start = time.time()  #Lets store some timing info
     image = retrieve_image(image_url)  #Go get that image
     if image is not None:  #As long as we have a vaid image and its not None (aka Null)
         image = process_image(image)  #Do our image processings
-        if configstuff['actually_store']:  #If our configu file says to store the image for reals
+        if actually_store:  #If our configu file says to store the image for reals
             key = store_to_vipr(image)  #store to vipr
             store_to_redis(key)  #and keep track of it in redis
     end = time.time()  # and record how long it took
@@ -109,7 +36,7 @@ def store_to_redis(image_key):
     """
     Keep track of an image in redis
     """
-
+    redis_images = utils.get_images_redis_conn()
     tx = redis_images.pipeline()  #Because we are goign to do a bunch of Redis ops quickly, setup a 'pipeline' (batch the ops)
     tx.hset(image_key.key, "filename",
             image_key.key)  #using the key's UUID as the name, set the hash value of 'filename' to the filename
@@ -122,7 +49,8 @@ def store_to_redis(image_key):
     tx.execute()  #Run the transaction.
     worker_logger.info("Stored image to redis: {}".format(image_key))
 
-def process_image(image, random_sleep=1):
+def process_image(image, random_sleep=0):
+    worker_logger.info("Processing image")
     image = image.filter(ImageFilter.BLUR)  #run the image through a blur filter
     final_image = StringIO()  #and now, since the PIL library requires a 'file like' object to store its data in, and I dont want to write a temp file, setup a stringIO to hold it.
     image.save(final_image, 'jpeg')  #store it as a JPG
@@ -146,13 +74,14 @@ def retrieve_image(image_url):
     return im
 
 def store_to_vipr(image_data):
+    s3_creds = utils.s3_creds()
     worker_logger.debug("Storing to ViPR")
     worker_logger.debug("Connecting to ViPR")
     s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'],
                              host=s3_creds['url'])  #set up an S3 style connections
     worker_logger.debug("Getting bucket")
     bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
-    lifecycle = Lifecycle()  #new lifecycle managers
+    #lifecycle = Lifecycle()  #new lifecycle managers
     #worker_logger.debug("Setting Bucket RulesViPR")
     #lifecycle.add_rule('Expire 1 day', status='Enabled', expiration=Expiration(days=1))  #make sure the bucket it set to only allow 1 day old images.  Probably dont need to do this every time.  TODO!
 
@@ -164,8 +93,12 @@ def store_to_vipr(image_data):
     worker_logger.info("Stored image {} to object store".format(k.key))
     return k  #and return that key info.
 
-def watch_stream(every=10):
+def watch_stream():
+    twitter_creds = utils.twitter_creds()
+    redis_queue = utils.get_rq_redis_conn()
     hashtag = redis_queue.get("hashtag")
+    q = utils.get_rq()
+
     twitter_api = TwitterAPI(
         consumer_key=twitter_creds['consumer_key'].encode('ascii','ignore'),
         consumer_secret=twitter_creds['consumer_secret'].encode('ascii','ignore'),

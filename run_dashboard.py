@@ -1,28 +1,15 @@
 from dashboard.dashboard import update_dashboard
 import time
-import logging, logging.config
-import json
-from config import Config
-import os
+import logging, logging.config, json
+import utils
 
+logging.config.dictConfig(utils.get_log_dict())
+worker_logger = logging.getLogger("vascodagama.worker")
+watcher_logger = logging.getLogger("vascodagama.watcher")
 
-logging_config = None
-
-cfg = None
-if "VCAP_SERVICES" in os.environ:
-
-    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
-    for configs in userservices:
-        if configs['name'] == "logging_config":
-            logging_config = json.loads(configs['credentials'])
-else:
-    print("Loading logging config from file")
-    cfg = Config(file('private_config_new.cfg'))
-    logging_config = json.loads(cfg.logging_config)
 
 
 if __name__ == "__main__":
-    logging.config.dictConfig(logging_config)
     while True:
         update_dashboard()
         time.sleep(10)

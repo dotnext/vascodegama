@@ -23,7 +23,7 @@ applications:
    - s3_storage
    - logging_config
   buildpack: python_buildpack
-  command: rqworker -c settings
+  command: rqworker -c settings -v
 
 - name: twitter-dashboard
   memory: 128M

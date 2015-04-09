@@ -1,36 +1,18 @@
-from flask import Flask, render_template #import our web server
-import logging #with loggins
+import sys
+import os
+sys.path.append(os.path.abspath('.'))
 
+from flask import Flask, render_template #import our web server
+import logging, logging.config, json #with loggins
+import utils
 import redis #and redis
 from config import Config # and the config files
 import os #and some OS functions
 import json #json functions
 
-import socket # i have no idea what this is
-
-
-
-redis_images_creds = {}
-
-if "VCAP_SERVICES" in os.environ:
-    rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
-    for creds in rediscloud:
-        if creds['name'] == "vascodagama-db":
-            redis_rq_creds = creds['credentials']
-        elif creds['name'] == "vascodagama-images":
-            redis_images_creds = creds['credentials']
-    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
-    for configs in userservices:
-        if configs['name'] == "configstuff":
-            configstuff = configs['credentials']
-else:
-    cfg = Config(file('private_config_new.cfg'))
-    redis_images_creds = cfg.redis_images_creds
-    redis_rq_creds = cfg.redis_rq_creds
-    s3_creds = cfg.s3_creds
-    twitter_creds = cfg.twitter_creds
-    configstuff = cfg.configstuff
-
+logging.config.dictConfig(utils.get_log_dict())
+worker_logger = logging.getLogger("vascodagama.worker")
+watcher_logger = logging.getLogger("vascodagama.watcher")
 
 logger = logging.getLogger('vascodagama.images')
 
@@ -38,15 +20,10 @@ logger = logging.getLogger('vascodagama.images')
 app = Flask(__name__)
 
 #connect to redis
-redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
-                           port=int(redis_images_creds['port']))
+redis_images = utils.get_images_redis_conn()
+
 #Setup a connection that will be used by RQ (each redis connection instance only talks to 1 DB)
-redis_queue = redis.Redis(
-    host=redis_rq_creds['hostname'],
-    db=0,
-    password=redis_rq_creds['password'],
-    port=int(redis_rq_creds['port'])
-)
+redis_queue = utils.get_rq_redis_conn()
 
 #gets a list of random URLS from refis.
 def get_random_urls(count=100):

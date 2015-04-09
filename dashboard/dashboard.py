@@ -4,13 +4,16 @@ import logging #standard logging
 import redis #interaction with redis
 from memoize import Memoizer #memoization is a method of caching function results.
 from rq import Queue #RedisQ, our job management system
-from pprint import pprint, pformat #pretty print
-import datetime #date/time utils
-import time #time utils
+
 from rq.decorators import job #funtion decoration
 import dweepy #see dweet.io
-import os,json
-import socket # i have no idea what this is
+import json, logging, logging.config
+import utils
+import datetime
+
+logging.config.dictConfig(utils.get_log_dict())
+worker_logger = logging.getLogger("vascodagama.worker")
+watcher_logger = logging.getLogger("vascodagama.watcher")
 
 logger = logging.getLogger('vascodagama.dashboard')
 
@@ -18,41 +21,9 @@ cache_store = {} #Where will we cache results.  Just use an inmemory dictionary.
 memo = Memoizer(cache_store) #Use that.
 max_cache_time = 2 #But only keep results for 2 seconds.
 
-redis_rq_creds = {}
-redis_images_creds = {}
-s3_creds = {}
-twitter_creds = {}
-configstuff = {}
-
-if "VCAP_SERVICES" in os.environ:
-    rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
-    for creds in rediscloud:
-        if creds['name'] == "vascodagama-db":
-            redis_rq_creds = creds['credentials']
-        elif creds['name'] == "vascodagama-images":
-            redis_images_creds = creds['credentials']
-    userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
-    for configs in userservices:
-        if configs['name'] == "configstuff":
-            configstuff = configs['credentials']
-else:
-    cfg = Config(file('private_config_new.cfg'))
-    redis_images_creds = cfg.redis_images_creds
-    redis_rq_creds = cfg.redis_rq_creds
-    configstuff = cfg.configstuff
-
-
-r = redis.Redis(
-    host=redis_rq_creds['hostname'],
-    db=0,
-    password=redis_rq_creds['password'],
-    port=int(redis_rq_creds['port'])
-)
-
-redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
-                           port=int(redis_images_creds['port']))
-
-q = Queue(connection=r)
+redis_images = utils.get_images_redis_conn()
+r = utils.get_rq_redis_conn()
+q = utils.get_rq()
 
 #Setup our redis and RQ connections.   see twitter_watch for more details.
 
@@ -60,6 +31,7 @@ q = Queue(connection=r)
 @job("dashboard", connection=r, timeout=3)
 def send_update(metric, value): #method for sending updates about metrics as needed.
     logger.info("Sending update for {}".format(metric))
+    configstuff = utils.configstuff()
     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
 
 def update_dashboard(): # the primary function.
@@ -140,7 +112,8 @@ def get_image_stats():
     return int(total_size), int(total_count) #and return both!
 
 def get_ops_per_sec():
-    return int(r.info()['instantaneous_ops_per_sec']) #Get this from the Redis status
+    total = int(redis_images.info()['instantaneous_ops_per_sec']) + int(r.info()['instantaneous_ops_per_sec'])
+    return total #Get this from the Redis status
 
 def get_queue_len():
     return len(q) #Easy way to determine number of jobs in queue.

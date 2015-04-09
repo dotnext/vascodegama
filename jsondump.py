@@ -1,14 +1,11 @@
-import json,os
+
+from pprint import pprint
 from config import Config
+import logging, logging.config
+from logging_tree import printout
+import utils
 
 cfg = Config(file("private_config_new.cfg"))
 
-d = {
-    "configstuff" : dict(cfg.configstuff),
-    "s3_creds" : dict(cfg.s3_creds),
-    "twitter_creds" : dict(cfg.twitter_creds),
-}
-
-with open("config.json", "w") as f:
-    json.dump(dict(d), f)
-
+logging.config.dictConfig(utils.get_log_dict())
+printout()
