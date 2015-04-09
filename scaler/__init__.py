@@ -17,30 +17,21 @@ s3_creds = {}
 twitter_creds = {}
 configstuff = {}
 
-class ContextFilter(logging.Filter):
-    hostname = socket.gethostname()
-
-    def filter(self, record):
-        record.hostname = ContextFilter.hostname
-        return True
-
-logger = logging.getLogger('')  # Grab the logging instance for our app, so we can make changes
+logger = logging.getLogger()  # Grab the logging instance for our app, so we can make changes
 logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
-f = ContextFilter()  # create context filter instance
-logger.addFilter(f)  # add the filter to the logger
 
 formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
 # and make them look prettier
 
 ch = logging.StreamHandler()  #set up a logging handler for the screen
-ch.setLevel(logging.INFO)  #make it only spit out INFO messages
+ch.setLevel(logging.DEBUG)  #make it only spit out INFO messages
 ch.setFormatter(formatter)  #make it use the pretty format
 logger.addHandler(ch)  #and finally add it to the logging instance
 
 
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
-#From this particular library, supress certain messages.
-
+logging.getLogger("oauthlib").setLevel(logging.WARN)
+logging.getLogger("requests_oauthlib").setLevel(logging.WARN)
 
 
 if "VCAP_SERVICES" in os.environ:
@@ -182,4 +173,3 @@ def reset_app():
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('VCAP_APP_PORT', '5000')))
     #the main sequence starts up the webserver and listens on the port specified by the VCAP_APP_PORT variable if found, and 5000 if undefined.
-    

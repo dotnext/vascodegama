@@ -14,12 +14,13 @@ import time  # basic time handling library
 import redis  # redis library
 import uuid  # library for creating unique IDs
 import random  # lirbary for random numbers
-from log_with import log_with  # library for making some kinds of logging easier
 from rq import Queue  # RQ, the job queueing system we use
 from rq.decorators import job  # And the function decoration for it.
 import dweepy  # the library we use for sending status updates.  Check http://dweet.io
 import os, json
-import scaler
+
+
+
 
 redis_rq_creds = {}
 redis_images_creds = {}
@@ -51,38 +52,31 @@ else:
     configstuff = cfg.configstuff
 
 
-class ContextFilter(logging.Filter):
-    hostname = socket.gethostname()
 
-    def filter(self, record):
-        record.hostname = ContextFilter.hostname
-        return True
-
-
-logger = logging.getLogger('')  # Grab the logging instance for our app, so we can make changes
+logger = logging.getLogger()  # Grab the logging instance for our app, so we can make changes
 logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
-f = ContextFilter()  # create context filter instance
-logger.addFilter(f)  # add the filter to the logger
 
 formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
 # and make them look prettier
 
 ch = logging.StreamHandler()  #set up a logging handler for the screen
-ch.setLevel(logging.INFO)  #make it only spit out INFO messages
+ch.setLevel(logging.DEBUG)  #make it only spit out INFO messages
 ch.setFormatter(formatter)  #make it use the pretty format
 logger.addHandler(ch)  #and finally add it to the logging instance
 
 
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
+logging.getLogger("oauthlib").setLevel(logging.WARN)
+logging.getLogger("requests_oauthlib").setLevel(logging.WARN)
+
 #From this particular library, supress certain messages.
 
-
-
-
+logger.debug("Connecting to Redis for images")
 #setup a connection to redis for the images database (Redis can have multiple databases)
 redis_images = redis.Redis(host=redis_images_creds['hostname'], db=0, password=redis_images_creds['password'],
                            port=int(redis_images_creds['port']))
 
+logger.debug("Connecting to Redis for RQ")
 #Setup a connection that will be used by RQ (each redis connection instance only talks to 1 DB)
 redis_queue = redis.Redis(
     host=redis_rq_creds['hostname'],
@@ -93,6 +87,7 @@ redis_queue = redis.Redis(
 
 #Based on that connection, setup our job queue, and set async=True to tell it we want to run jobs out-of-band.
 #We could set it to 'True' if we wanted it to run jobs right away.  Sometimes useful for debugging.
+logger.debug("Setting up the queue")
 q = Queue(connection=redis_queue, async=True)
 
 
@@ -105,7 +100,7 @@ def send_update(metric, value):
     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
 
 
-@log_with(logger)
+
 def get_image(image_url):
     """
     This is the job that gets queued when a tweet needs to be analyzed
@@ -123,7 +118,7 @@ def get_image(image_url):
     redis_queue.incr("stats:tweets-processed")  #and also record that we processed another tweet.
 
 
-@log_with(logger)
+
 def store_to_redis(image_key):
     """
     Keep track of an image in redis
@@ -142,7 +137,7 @@ def store_to_redis(image_key):
     logger.info("Stored image to redis: {}".format(image_key))
 
 
-@log_with(logger)
+
 def process_image(image, random_sleep=1):
     image = image.filter(ImageFilter.BLUR)  #run the image through a blur filter
     final_image = StringIO()  #and now, since the PIL library requires a 'file like' object to store its data in, and I dont want to write a temp file, setup a stringIO to hold it.
@@ -152,7 +147,7 @@ def process_image(image, random_sleep=1):
     return final_image  #and give back the image
 
 
-@log_with(logger)
+
 def retrieve_image(image_url):
     """
     Retrieves the image from the web
@@ -169,7 +164,7 @@ def retrieve_image(image_url):
     return im
 
 
-@log_with(logger)
+
 def store_to_vipr(image_data):
     logger.debug("Storing to ViPR")
     logger.debug("Connecting to ViPR")
@@ -191,7 +186,7 @@ def store_to_vipr(image_data):
     return k  #and return that key info.
 
 
-@log_with(logger)
+
 def watch_stream(every=10):
     twitter_api = TwitterAPI(
         consumer_key=twitter_creds['consumer_key'].encode('ascii','ignore'),

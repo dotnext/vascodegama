@@ -6,13 +6,7 @@ from config import Config # and the config files
 import os #and some OS functions
 import json #json functions
 import socket # i have no idea what this is
-from logging.handlers import SysLogHandler #import syslog handler
 
-class ContextFilter(logging.Filter):
-  hostname = socket.gethostname()
-  def filter(self, record):
-    record.hostname = ContextFilter.hostname
-    return True
 
 
 redis_images_creds = {}
@@ -37,24 +31,21 @@ else:
     configstuff = cfg.configstuff
 
 
-logger = logging.getLogger('')
-logger.setLevel(logging.DEBUG)
-f = ContextFilter() #create context filter instance
-logger.addFilter(f) #add the filter to the logger
+logger = logging.getLogger()  # Grab the logging instance for our app, so we can make changes
+logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
 
 formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
+# and make them look prettier
+
+ch = logging.StreamHandler()  #set up a logging handler for the screen
+ch.setLevel(logging.DEBUG)  #make it only spit out INFO messages
+ch.setFormatter(formatter)  #make it use the pretty format
+logger.addHandler(ch)  #and finally add it to the logging instance
 
 
-# loggly_handler = loggly.handlers.HTTPSHandler(url="{}{}".format(credentials["Loggly"]["url"], "gui"))
-# loggly_handler.setLevel(logging.DEBUG)
-# logger.addHandler(loggly_handler)
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-ch.setFormatter(formatter)
-logger.addHandler(ch) #and finally add it to the logging instance
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
-#setup logging, check twitter_watch for details on what all the above does.
-
+logging.getLogger("oauthlib").setLevel(logging.WARN)
+logging.getLogger("requests_oauthlib").setLevel(logging.WARN)
 
 #setup flask
 app = Flask(__name__)

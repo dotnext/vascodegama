@@ -16,37 +16,28 @@ import socket # i have no idea what this is
 
 
 
+
+logger = logging.getLogger()  # Grab the logging instance for our app, so we can make changes
+logger.setLevel(logging.DEBUG)  # LOG ALL THE THINGS!
+
+formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
+# and make them look prettier
+
+ch = logging.StreamHandler()  #set up a logging handler for the screen
+ch.setLevel(logging.DEBUG)  #make it only spit out INFO messages
+ch.setFormatter(formatter)  #make it use the pretty format
+logger.addHandler(ch)  #and finally add it to the logging instance
+
+
+logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
+logging.getLogger("oauthlib").setLevel(logging.WARN)
+logging.getLogger("requests_oauthlib").setLevel(logging.WARN)
+
+
+
 cache_store = {} #Where will we cache results.  Just use an inmemory dictionary.  If we wanted to scale bigger, what could we use?
 memo = Memoizer(cache_store) #Use that.
 max_cache_time = 2 #But only keep results for 2 seconds.
-
-
-class ContextFilter(logging.Filter):
-  hostname = socket.gethostname()
-  def filter(self, record):
-    record.hostname = ContextFilter.hostname
-    return True
-
-
-
-
-logger = logging.getLogger('')
-logger.setLevel(logging.INFO)
-f = ContextFilter() #create context filter instance
-logger.addFilter(f) #add the filter to the logger
-
-formatter = logging.Formatter("%(asctime)s [%(module)s:%(funcName)s] twitter_photos [%(levelname)-5.5s] %(message)s")
-
-# loggly_handler = loggly.handlers.HTTPSHandler(url="{}{}".format(credentials["Loggly"]["url"], "gui"))
-# loggly_handler.setLevel(logging.DEBUG)
-# logger.addHandler(loggly_handler)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-logger.addHandler(ch) #and finally add it to the logging instance
-
-logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
-###Setup all our logging, see twitter_watch for more details.
 
 redis_rq_creds = {}
 redis_images_creds = {}
