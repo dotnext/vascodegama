@@ -126,10 +126,7 @@ def store_to_vipr(image_data):
     s3conn = boto.connect_s3(cfg.vipr_access_key, cfg.vipr_secret_key, host=cfg.vipr_url) #set up an S3 style connections
     logger.debug("Getting bucket")
     bucket = s3conn.get_bucket(cfg.vipr_bucket_name) #reference to the S3 bucket.
-    lifecycle = Lifecycle() #new lifecycle managers
-    logger.debug("Setting Bucket RulesViPR")
-    lifecycle.add_rule('Expire 1 day', status='Enabled',expiration=Expiration(days=1)) #make sure the bucket it set to only allow 1 day old images.  Probably dont need to do this every time.  TODO!
-
+    
     image_guid = str(uuid.uuid4()) #Pick a random UUID!
     k = Key(bucket) #and gimme a new key to refer to file object.
     k.key = "{}.jpg".format(image_guid) #give it a name based on the UUID.
