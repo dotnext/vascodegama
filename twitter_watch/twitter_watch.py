@@ -22,7 +22,8 @@ def get_image(image_url, actually_store=True):
     """
     This is the job that gets queued when a tweet needs to be analyzed
     """
-    redis_queue = utils.get_images_redis_conn()
+    redis_queue = utils.get_rq_redis_conn()
+
     start = time.time()  #Lets store some timing info
     image = retrieve_image(image_url)  #Go get that image
     if image is not None:  #As long as we have a vaid image and its not None (aka Null)
@@ -126,8 +127,8 @@ def watch_stream():
                             q.enqueue(
                                 get_image,
                                 tweet['entities']['media'][0]['media_url'],
-                                timeout=60,
-                                ttl=600
+                                ttl=60,
+                                result_ttl=60
                             )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
                     except KeyError as e:
                         watcher_logger.info("Caught a key error for tweet, expected behavior, so ignoring: {}".format(e.message))

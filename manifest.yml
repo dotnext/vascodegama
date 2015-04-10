@@ -15,7 +15,7 @@ applications:
 - name: twitter-worker
   memory: 128M
   no-route: true
-  instances: 5
+  instances: 2
   services:
    - vascodagama-db
    - vascodagama-images

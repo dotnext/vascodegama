@@ -1,37 +1,25 @@
 
-from config import Config #config file module
-import logging #standard logging
-import redis #interaction with redis
-from memoize import Memoizer #memoization is a method of caching function results.
-from rq import Queue #RedisQ, our job management system
-
 from rq.decorators import job #funtion decoration
 import dweepy #see dweet.io
-import json, logging, logging.config
+import logging, logging.config
 import utils
 import datetime
 
 logging.config.dictConfig(utils.get_log_dict())
-worker_logger = logging.getLogger("vascodagama.worker")
-watcher_logger = logging.getLogger("vascodagama.watcher")
 
 logger = logging.getLogger('vascodagama.dashboard')
 
-cache_store = {} #Where will we cache results.  Just use an inmemory dictionary.  If we wanted to scale bigger, what could we use?
-memo = Memoizer(cache_store) #Use that.
-max_cache_time = 2 #But only keep results for 2 seconds.
 
 redis_images = utils.get_images_redis_conn()
 r = utils.get_rq_redis_conn()
 q = utils.get_rq()
 
 #Setup our redis and RQ connections.   see twitter_watch for more details.
-
+configstuff = utils.configstuff()
 
 @job("dashboard", connection=r, timeout=3)
 def send_update(metric, value): #method for sending updates about metrics as needed.
-    logger.info("Sending update for {}".format(metric))
-    configstuff = utils.configstuff()
+    logger.info("Sending update for {}: {}".format(metric, value))
     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
 
 def update_dashboard(): # the primary function.
@@ -39,53 +27,51 @@ def update_dashboard(): # the primary function.
 
 
     #For each one of the metrics, collected the data and issue a job to actually send that out.
-
     tweets_in_queue = get_queue_len()
-    logger.info("Sending update for {}".format("tweets-in-queue"))
+    logging.debug("{}: {}".format("tweets in queue",tweets_in_queue))
     send_update.delay("tweets-in-queue",tweets_in_queue)
     #dog.metric('tweets.inqueue', tweets_in_queue, host="twitter")
 
     time_in_q = get_time_in_q()
-    logger.info("Sending update for {}".format("time-in-queue"))
+    logging.debug("{}: {}".format("time in q", time_in_q))
     send_update.delay("longest-time-in-queue", time_in_q)
     #dog.metric('tweets.timeinqueue', time_in_q, host="twitter")
 
     worker_count = get_worker_count()
-    logger.info("Sending update for {}".format("worker-count"))
+    logging.debug("{}: {}".format("workers", worker_count))
     send_update.delay("worker-count",worker_count)
     #dog.metric('workers.count', worker_count, host="twitter")
 
 
-    size, count = get_image_stats()
-    logger.info("Sending update for {}".format("image-size"))
-    send_update.delay("images-size", size)
-    #dog.metric('images.size', size, host="twitter")
-
-    logger.info("Sending update for {}".format("key-in-redis"))
-    send_update.delay("keys-in-redis", count)
-    #dog.metric('images.count', count, host="twitter")
 
     ops_per_sec = get_ops_per_sec()
-    logger.info("Sending update for {}".format("ops-per-sec"))
+    logging.debug("{}: {}".format("ops",ops_per_sec))
     send_update.delay("ops",ops_per_sec)
     #dog.metric('redis.inqueue', ops_per_sec, host="twitter")
 
     exec_time = get_exec_time()
-    logger.info("Sending update for {}".format("execution time"))
+    logging.debug("{}: {}".format("exec time", exec_time))
     send_update.delay("execution-time",exec_time)
     #dog.metric('tweets.execution_time', exec_time, host="twitter")
 
     tweet_count = get_tweet_count()
-    logger.info("Sending update for {}".format("total tweets"))
+    logging.debug("{}: {}".format("tweet count", tweet_count))
     send_update.delay("tweet-count",tweet_count)
     #dog.metric('tweets.count', tweet_count, host="twitter")
 
     tweets_processed = get_tweets_processed()
-    logger.info("Sending update for {}".format("total tweets processed"))
+    logging.debug("{}: {}".format("processed count",tweets_processed))
     send_update.delay("tweet-processed",tweets_processed)
     #dog.metric('tweets.processed', tweets_processed, host="twitter")
 
+    size, count = get_image_stats()
+    logging.debug("{}: {}".format("size",size))
+    send_update.delay("images-size", size)
+    #dog.metric('images.size', size, host="twitter")
 
+    logging.debug("{}: {}".format("count",count))
+    send_update.delay("keys-in-redis", count)
+    #dog.metric('images.count', count, host="twitter")
 
 def get_worker_count():
 
@@ -116,18 +102,21 @@ def get_ops_per_sec():
     return total #Get this from the Redis status
 
 def get_queue_len():
+    #return 22
     return len(q) #Easy way to determine number of jobs in queue.
 
 def get_time_in_q():
-
+    logger.debug("enter time in q function")
     try:
         oldest_job = q.jobs[0] #find the oldest job (because its at queue position 0)
         enqueued = oldest_job.enqueued_at #find out when it was enqueues
         now = datetime.datetime.utcnow() #when is it now
         delta = (now-enqueued).seconds #whats the delta
+        logger.debug("exit time in q function as success: {}".format(delta))
         return delta #and return it
     except IndexError as e:
         #Queue was empty if we got here, so the oldest value is 0
+        logger.debug("exit time in q function as error because no jobs")
         return 0
 
 def get_exec_time():
