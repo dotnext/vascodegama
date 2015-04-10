@@ -8,7 +8,10 @@ from TwitterAPI import TwitterAPI
 from boto.s3.key import Key
 from StringIO import StringIO
 from PIL import ImageFilter, Image
+import httplib
+from requests.packages.urllib3.exceptions import ProtocolError
 import utils
+
 
 logging.config.dictConfig(utils.get_log_dict())
 worker_logger = logging.getLogger("vascodagama.worker")
@@ -108,24 +111,29 @@ def watch_stream():
 
     watcher_logger.info("Waiting for tweets...")
     while True:
-        try:
             #tweet_stream = twitter_api.request('statuses/filter', {'track': hashtag})  #ask for a stream of statuses (1% of the full feed) that match my hash tags
-            for tweet in twitter_api.request('statuses/filter', {'track': hashtag}).get_iterator():  #for each one of thise
-                if hashtag != redis_queue.get("hashtag"):
-                    watcher_logger.info("Hashtag changed from {}, breaking loop to restart with new hashtag".format(hashtag))
-                    hashtag = redis_queue.get("hashtag")
-                    break
-                watcher_logger.info("Tweet Received: {}".format(hashtag))  #Log it
-                redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
-                if tweet['entities']['media'][0]['type'] == 'photo': #Look for the photo.  If its not there, will throw a KeyError, caught below
-                    watcher_logger.info("Dispatching tweet with URL {}".format(tweet['entities']['media'][0]['media_url']))  # log it
-                    q.enqueue(
-                        get_image,
-                        tweet['entities']['media'][0]['media_url'],
-                        timeout=60,
-                        ttl=600
-                    )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
-        except KeyError as e:
-            watcher_logger.warn("Caught a key error for tweet, ignoring: {}".format(e.message))
-        except Exception as e:
-            watcher_logger.critical("UNEXPECTED EXCEPTION: {}".format(e))
+            try:
+                for tweet in twitter_api.request('statuses/filter', {'track': hashtag}).get_iterator():  #for each one of thise
+                    if hashtag != redis_queue.get("hashtag"):
+                        watcher_logger.info("Hashtag changed from {}, breaking loop to restart with new hashtag".format(hashtag))
+                        hashtag = redis_queue.get("hashtag")
+                        break
+                    #watcher_logger.debug("Tweet Received: {}".format(hashtag))  #Log it
+                    redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
+                    try:
+                        if tweet['entities']['media'][0]['type'] == 'photo': #Look for the photo.  If its not there, will throw a KeyError, caught below
+                            watcher_logger.debug("Dispatching tweet ({}) with URL {}".format(hashtag,tweet['entities']['media'][0]['media_url']))  # log it
+                            q.enqueue(
+                                get_image,
+                                tweet['entities']['media'][0]['media_url'],
+                                timeout=60,
+                                ttl=600
+                            )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
+                    except KeyError as e:
+                        watcher_logger.info("Caught a key error for tweet, expected behavior, so ignoring: {}".format(e.message))
+                    except Exception as e:
+                        watcher_logger.critical("UNEXPECTED EXCEPTION: {}".format(e))
+            except httplib.IncompleteRead as e:
+                watcher_logger.warn("HTTP Exception {}".format(e))
+            except ProtocolError as e:
+                watcher_logger.warn("Protocol Exception {}".format(e))
