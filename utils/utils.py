@@ -43,7 +43,7 @@ def _get_config():
             elif configs['name'] == "configstuff":
                 _configstuff = configs['credentials']
             elif configs['name'] == "logging_config":
-                _logging_config = configs['logging_config']
+                _logging_config = configs['credentials']
 
     else:
         cfg = Config(file('private_config_new.cfg'))
