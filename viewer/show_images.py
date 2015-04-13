@@ -37,7 +37,7 @@ def get_random_urls(count=100):
         pipe_urls.hget(key,"url") #get the URL property.
 
     urls = pipe_urls.execute() #the list of URLs is the result.
-    return urls #return it.
+    return list(set(urls)) #return it.
 
 
 #This responds to requests for "/"
