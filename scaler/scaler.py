@@ -20,6 +20,12 @@ logger = logging.getLogger('vascodagama.scaler')
 
 redis_images = utils.get_images_redis_conn()
 redis_queue = utils.get_rq_redis_conn()
+q = utils.get_rq()
+
+
+def batch_gen(data, batch_size):
+    for i in range(0, len(data), batch_size):
+            yield data[i:i+batch_size]
 
 def clear_app():
     s3_creds = utils.s3_creds()
@@ -29,17 +35,25 @@ def clear_app():
     redis_images.flushdb()
     logger.debug("flushing redis queue db")
     redis_queue.flushdb()
-    logger.debug("opening s3 connection")
     logger.debug("repopulating the hashtag")
     redis_queue.set("hashtag",hashtag)
+    logger.debug("opening s3 connection")
     s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'], host=s3_creds['url'])  #set up an S3 style connections
     logger.debug("Getting bucket")
     bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
-    logger.debug("deleting bucket contents")
-    for x in bucket.list():
-        logger.info("Deleted image {} from object store".format(x.key))
-        bucket.delete_key(x.key)
-    return
+    logger.debug("deleting bucket contents in batches of 100")
+
+    all_keys = [x.key for x in bucket.list()]
+    for keys in batch_gen(all_keys,100):
+        logger.info("Deleted image {} from object store".format(keys[0]))
+        q.enqueue(
+            bucket.delete_keys,
+            keys,
+            ttl=60,
+            result_ttl=60,
+            timeout=60
+        ) 
+    return len(all_keys)
 
 
 def check_auth(username, password):
@@ -118,14 +132,14 @@ def scale_app(appname, target):
 def change_hashtag(hashtag):
     logger.info("Changing hashtag to {}".format(hashtag))
     redis_queue.set("hashtag",hashtag)
-    clear_app()
-    return jsonify({"status":"success"})
+    deleted = clear_app()
+    return jsonify({"status":"success", "count":deleted})
 
 @app.route('/reset')
 @requires_auth
 def reset_app():
-    clear_app()
-    return jsonify({"status":"success"})
+    deleted = clear_app()
+    return jsonify({"status":"success", "count":deleted})
 
 def run():
     app.run(host='0.0.0.0', port=int(os.getenv('VCAP_APP_PORT', '5000')))

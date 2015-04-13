@@ -17,7 +17,7 @@ q = utils.get_rq()
 #Setup our redis and RQ connections.   see twitter_watch for more details.
 configstuff = utils.configstuff()
 
-@job("dashboard", connection=r, timeout=3)
+@job("dashboard", connection=r, timeout=10, result_ttl=10)
 def send_update(metric, value): #method for sending updates about metrics as needed.
     logger.info("Sending update for {}: {}".format(metric, value))
     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
@@ -143,4 +143,3 @@ def get_tweets_processed():
         return int(r.get("stats:tweets-processed")) #simple get from redis.
     except:
         return 0
-

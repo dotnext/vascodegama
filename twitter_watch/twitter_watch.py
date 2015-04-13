@@ -120,9 +120,12 @@ def watch_stream():
                         break
                     #watcher_logger.debug("Tweet Received: {}".format(hashtag))  #Log it
                     redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
-                    watcher_logger.info("received tweet with tag {}".format(hashtag))
+                    watcher_logger.debug("received tweet with tag {}".format(hashtag))
                     try:
                         if tweet['entities']['media'][0]['type'] == 'photo': #Look for the photo.  If its not there, will throw a KeyError, caught below
+                            if 'retweeted' not in tweet:
+                                watcher_logger.info("Tweet was a RT - ignoring")
+                                continue
                             watcher_logger.info("Dispatching tweet ({}) with URL {}".format(hashtag,tweet['entities']['media'][0]['media_url']))  # log it
                             q.enqueue(
                                 get_image,
@@ -132,7 +135,7 @@ def watch_stream():
                                 timeout=60
                             )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
                     except KeyError as e:
-                        watcher_logger.info("Caught a key error for tweet, expected behavior, so ignoring: {}".format(e.message))
+                        watcher_logger.debug("Caught a key error for tweet, expected behavior, so ignoring: {}".format(e.message))
                     except Exception as e:
                         watcher_logger.critical("UNEXPECTED EXCEPTION: {}".format(e))
             except httplib.IncompleteRead as e:
