@@ -1,0 +1,3 @@
+[submodule "pebble-app"]
+	path = pebble-app
+	url = https://github.com/mcowger/PebbleWatchScaler.git
