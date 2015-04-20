@@ -35,6 +35,7 @@ def clear_app():
     redis_images.flushdb()
     logger.debug("flushing redis queue db")
     redis_queue.flushdb()
+
     logger.debug("repopulating the hashtag")
     redis_queue.set("hashtag",hashtag)
     logger.debug("opening s3 connection")
@@ -52,7 +53,7 @@ def clear_app():
             ttl=60,
             result_ttl=60,
             timeout=60
-        ) 
+        )
     return len(all_keys)
 
 

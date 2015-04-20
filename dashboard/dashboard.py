@@ -75,8 +75,7 @@ def update_dashboard(): # the primary function.
 
 def get_worker_count():
 
-    return len(r.smembers("rq:workers"))
-    #The number of workers is 1 less than the members in the rq:workers set (because 1 worker is dedicated to just dashboards)
+    return len(r.keys("rq:worker:*"))
 
 def get_image_stats():
 

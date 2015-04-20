@@ -45,6 +45,7 @@ applications:
   services:
   services:
    - vascodagama-db
+   - vascodagama-images
    - configstuff
    - logging_config
   buildpack: python_buildpack
