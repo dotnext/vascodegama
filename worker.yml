@@ -1,0 +1,7 @@
+---
+inherit: base.yml
+
+applications:
+- name: twitter-worker-prod
+  instances: 2
+  command: rqworker -c settings -v

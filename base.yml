@@ -1,0 +1,13 @@
+---
+# all applications use these settings and services
+domain: cfapps.io
+memory: 128M
+instances: 1
+no-route: true
+buildpack: python_buildpack
+services:
+   - vascodagama-db
+   - vascodagama-images
+   - twitter
+   - configstuff
+   - logging_config

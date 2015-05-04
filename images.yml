@@ -1,0 +1,8 @@
+---
+inherit: base.yml
+
+applications:
+- name: twitter-images-prod
+  no-route: false
+  host: vascodagama-emcworld-prod
+  command: python viewer/show_images.py

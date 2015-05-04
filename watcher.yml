@@ -1,0 +1,6 @@
+---
+inherit: base.yml
+
+applications:
+- name: twitter-watcher-prod
+  command: python run_watcher.py

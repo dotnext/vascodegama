@@ -1,0 +1,6 @@
+---
+inherit: base.yml
+
+applications:
+- name: twitter-dashboard-prod
+  command: python run_dashboard.py
