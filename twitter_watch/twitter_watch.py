@@ -55,7 +55,7 @@ def store_to_redis(image_key):
 
 def process_image(image, random_sleep=0):
     worker_logger.info("Processing image")
-    image = image.filter(ImageFilter.BLUR)  #run the image through a blur filter
+    image = image.filter(ImageFilter.FIND_EDGES)  #run the image through a blur filter
     final_image = StringIO()  #and now, since the PIL library requires a 'file like' object to store its data in, and I dont want to write a temp file, setup a stringIO to hold it.
     image.save(final_image, 'jpeg')  #store it as a JPG
     if random_sleep:  #added a random sleep here to make it seem like the process takes longer.  Simulates more expensive processing.

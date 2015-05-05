@@ -11,3 +11,4 @@ services:
    - twitter
    - configstuff
    - logging_config
+   - s3_storage

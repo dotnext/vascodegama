@@ -12,4 +12,4 @@ watcher_logger = logging.getLogger("vascodagama.watcher")
 if __name__ == "__main__":
     while True:
         update_dashboard()
-        time.sleep(10)
+        time.sleep(5)

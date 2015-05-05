@@ -19,63 +19,59 @@ configstuff = utils.configstuff()
 
 @job("dashboard", connection=r, timeout=10, result_ttl=10)
 def send_update(metric, value): #method for sending updates about metrics as needed.
-    logger.info("Sending update for {}: {}".format(metric, value))
+    logger.debug("Sending update for {}: {}".format(metric, value))
     dweepy.dweet_for(configstuff['dweet_thing'], {metric: value})
+
+
+
 
 def update_dashboard(): # the primary function.
     logger.info("updating")
 
 
     #For each one of the metrics, collected the data and issue a job to actually send that out.
-    tweets_in_queue = get_queue_len()
-    logging.debug("{}: {}".format("tweets in queue",tweets_in_queue))
-    send_update.delay("tweets-in-queue",tweets_in_queue)
-    #dog.metric('tweets.inqueue', tweets_in_queue, host="twitter")
+    get_queue_len()
+    # logging.debug("{}: {}".format("tweets in queue",tweets_in_queue))
+    # send_update.delay("tweets-in-queue",tweets_in_queue)
 
-    time_in_q = get_time_in_q()
-    logging.debug("{}: {}".format("time in q", time_in_q))
-    send_update.delay("longest-time-in-queue", time_in_q)
-    #dog.metric('tweets.timeinqueue', time_in_q, host="twitter")
+    get_time_in_q()
+    # logging.debug("{}: {}".format("time in q", time_in_q))
+    # send_update.delay("longest-time-in-queue", time_in_q)
 
-    worker_count = get_worker_count()
-    logging.debug("{}: {}".format("workers", worker_count))
-    send_update.delay("worker-count",worker_count)
-    #dog.metric('workers.count', worker_count, host="twitter")
+    get_worker_count()
+    # logging.debug("{}: {}".format("workers", worker_count))
+    # send_update.delay("worker-count",worker_count)
 
 
 
-    ops_per_sec = get_ops_per_sec()
-    logging.debug("{}: {}".format("ops",ops_per_sec))
-    send_update.delay("ops",ops_per_sec)
-    #dog.metric('redis.inqueue', ops_per_sec, host="twitter")
+    get_ops_per_sec()
+    # logging.debug("{}: {}".format("ops",ops_per_sec))
+    # send_update.delay("ops",ops_per_sec)
 
-    exec_time = get_exec_time()
-    logging.debug("{}: {}".format("exec time", exec_time))
-    send_update.delay("execution-time",exec_time)
-    #dog.metric('tweets.execution_time', exec_time, host="twitter")
+    get_exec_time()
+    # logging.debug("{}: {}".format("exec time", exec_time))
+    # send_update.delay("execution-time",exec_time)
 
-    tweet_count = get_tweet_count()
-    logging.debug("{}: {}".format("tweet count", tweet_count))
-    send_update.delay("tweet-count",tweet_count)
-    #dog.metric('tweets.count', tweet_count, host="twitter")
+    get_tweet_count()
+    # logging.debug("{}: {}".format("tweet count", tweet_count))
+    # send_update.delay("tweet-count",tweet_count)
 
-    tweets_processed = get_tweets_processed()
-    logging.debug("{}: {}".format("processed count",tweets_processed))
-    send_update.delay("tweet-processed",tweets_processed)
-    #dog.metric('tweets.processed', tweets_processed, host="twitter")
+    get_tweets_processed()
+    # logging.debug("{}: {}".format("processed count",tweets_processed))
+    # send_update.delay("tweet-processed",tweets_processed)
 
-    size, count = get_image_stats()
-    logging.debug("{}: {}".format("size",size))
-    send_update.delay("images-size", size)
-    #dog.metric('images.size', size, host="twitter")
-
-    logging.debug("{}: {}".format("count",count))
-    send_update.delay("keys-in-redis", count)
-    #dog.metric('images.count', count, host="twitter")
+    get_image_stats()
+    # logging.debug("{}: {}".format("size",size))
+    # send_update.delay("images-size", size)
+    #
+    # logging.debug("{}: {}".format("count",count))
+    # send_update.delay("keys-in-redis", count)
 
 def get_worker_count():
 
-    return len(r.keys("rq:worker:*"))
+    count = len(r.keys("rq:worker:*"))
+    logger.debug("Count: {}".format(count))
+    send_update.delay("worker-count", count)
 
 def get_image_stats():
 
@@ -94,29 +90,38 @@ def get_image_stats():
 
     total_size = round(total_size / 1024 / 1024) #Turn that into MB
 
-    return int(total_size), int(total_count) #and return both!
+    logger.debug("Images: {}".format(total_size))
+    logger.debug("Keys: {}".format(total_count))
+    send_update.delay("images-size", total_size)
+    send_update.delay("keys-in-redis", total_count)
+    # return int(total_size), int(total_count) #and return both!
 
 def get_ops_per_sec():
     total = int(redis_images.info()['instantaneous_ops_per_sec']) + int(r.info()['instantaneous_ops_per_sec'])
-    return total #Get this from the Redis status
+    logger.debug("Ops: {}".format(total))
+    send_update.delay("ops",total)
 
 def get_queue_len():
-    #return 22
-    return len(q) #Easy way to determine number of jobs in queue.
+    logger.debug("Count: {}".format(len(q)))
+    send_update.delay("tweets-in-queue",len(q))
 
 def get_time_in_q():
-    logger.debug("enter time in q function")
+    #logger.debug("enter time in q function")
+    time = 0
     try:
         oldest_job = q.jobs[0] #find the oldest job (because its at queue position 0)
         enqueued = oldest_job.enqueued_at #find out when it was enqueues
         now = datetime.datetime.utcnow() #when is it now
         delta = (now-enqueued).seconds #whats the delta
-        logger.debug("exit time in q function as success: {}".format(delta))
-        return delta #and return it
+        #logger.debug("exit time in q function as success: {}".format(delta))
+        time = delta #and return it
     except IndexError as e:
         #Queue was empty if we got here, so the oldest value is 0
-        logger.debug("exit time in q function as error because no jobs")
-        return 0
+        #logger.debug("exit time in q function as error because no jobs")
+        time = 0
+
+    logger.debug("QueueTime: {}".format(time))
+    send_update.delay("longest-time-in-queue", time)
 
 def get_exec_time():
     count = r.llen("stats:execution-times") #We keep the execution times in a Redis List.  Found out how many entries we have
@@ -129,16 +134,24 @@ def get_exec_time():
 
     average = float(total)/count #and calculate the average.
     r.ltrim("stats:execution-times",0,0) #delete all the entries so its clean for next time.
-    return round(average,2) #Return the average.
+    avg = round(average,2) #Return the average.
+    logger.debug("Exec: {}".format(avg))
+    send_update.delay("execution-time",avg)
 
 def get_tweet_count():
+    count = 0
     try:
-        return int(r.get("stats:tweets"))
+        count = int(r.get("stats:tweets"))
     except:
-        return 0 #simple get from redis
+        count =  0 #simple get from redis
+    logger.debug("Tweet-Count: {}".format(count))
+    send_update.delay("tweet-count",count)
 
 def get_tweets_processed():
+    proc = 0
     try:
-        return int(r.get("stats:tweets-processed")) #simple get from redis.
+        proc =  int(r.get("stats:tweets-processed")) #simple get from redis.
     except:
-        return 0
+        proc =  0
+    logger.debug("Tweet-Proc: {}".format(proc))
+    send_update.delay("tweet-processed",proc)
