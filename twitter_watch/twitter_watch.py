@@ -11,7 +11,7 @@ from PIL import ImageFilter, Image
 import httplib
 from requests.packages.urllib3.exceptions import ProtocolError
 import utils
-
+import random
 
 logging.config.dictConfig(utils.get_log_dict())
 worker_logger = logging.getLogger("vascodagama.worker")
@@ -55,7 +55,19 @@ def store_to_redis(image_key):
 
 def process_image(image, random_sleep=0):
     worker_logger.info("Processing image")
-    image = image.filter(ImageFilter.FIND_EDGES)  #run the image through a blur filter
+    possible_filters = [
+        ImageFilter.FIND_EDGES,
+        ImageFilter.CONTOUR,
+        ImageFilter.DETAIL,
+        ImageFilter.EDGE_ENHANCE,
+        ImageFilter.FIND_EDGES,
+        ImageFilter.EMBOSS,
+        ImageFilter.SMOOTH,
+        ImageFilter.SHARPEN
+    ]
+
+    filter_to_use = random.choice(possible_filters)
+    image = image.filter(filter_to_use)  #run the image through a blur filter
     final_image = StringIO()  #and now, since the PIL library requires a 'file like' object to store its data in, and I dont want to write a temp file, setup a stringIO to hold it.
     image.save(final_image, 'jpeg')  #store it as a JPG
     if random_sleep:  #added a random sleep here to make it seem like the process takes longer.  Simulates more expensive processing.
