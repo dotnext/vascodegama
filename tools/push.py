@@ -1,6 +1,7 @@
 from shell import shell
 import uuid
 import sys
+import webbrowser
 from random_words import RandomWords
 rw = RandomWords()
 
@@ -9,7 +10,7 @@ rw = RandomWords()
 
 route_map = {
     "scaler": "vascodagama-emcworld-scaler",
-    "images": "vascodagama-emcworld"
+    "images": "vascodagama-emcworld-prod"
 }
 
 
@@ -45,6 +46,7 @@ map_route = shell(command_string)
 print(map_route.output(raw=True))
 print(command_string)
 print("Check it out! Does it look good: http://{}.cfapps.io".format(app_name))
+webbrowser.open_new("http://{}.{}".format(base_route,domain))
 print("If it looks good, hit enter and we'll roll it back!")
 
 raw_input("Hit Enter!")
