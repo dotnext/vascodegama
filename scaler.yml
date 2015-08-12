@@ -2,7 +2,7 @@
 inherit: base.yml
 
 applications:
-- name: twitter-scaler-prod
+- name: scaler
   no-route: false
-  host: vascodagama-emcworld-scaler-prod
+  host: scaler
   command: python scaler/scaler.py

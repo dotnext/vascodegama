@@ -26,34 +26,49 @@ def _get_config():
     global _q
     global valid_config
 
-    from config import Config  # import a module that makes config files easier
+
+    _logging_config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'standard': {
+                'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+            },
+        },
+        'handlers': {
+            'default': {
+                'level':'DEBUG',
+                'class':'logging.StreamHandler',
+            },
+        },
+        'loggers': {
+            '': {
+                'handlers': ['default'],
+                'level': 'DEBUG',
+                'propagate': True
+            },
+        }
+    }
+
     if "VCAP_SERVICES" in os.environ:
-        rediscloud = json.loads(os.environ['VCAP_SERVICES'])['rediscloud']
-        for creds in rediscloud:
-            if creds['name'] == "vascodagama-db":
-                _redis_rq_creds = creds['credentials']
-            elif creds['name'] == "vascodagama-images":
-                _redis_images_creds = creds['credentials']
         userservices = json.loads(os.environ['VCAP_SERVICES'])['user-provided']
         for configs in userservices:
+
             if configs['name'] == "s3_storage":
                 _s3_creds = configs['credentials']
             elif configs['name'] == "twitter":
                 _twitter_creds = configs['credentials']
             elif configs['name'] == "configstuff":
                 _configstuff = configs['credentials']
-            elif configs['name'] == "logging_config":
-                _logging_config = configs['credentials']
+            # elif configs['name'] == "logging_config":
+            #     _logging_config = configs['credentials']
+            elif configs['name'] == "redis-rq":
+                _redis_rq_creds = configs['credentials']
+            elif configs['name'] == "redis-metadata":
+                _redis_images_creds = configs['credentials']
 
-    else:
-        cfg = Config(file('private_config_new.cfg'))
-        _redis_images_creds = cfg.redis_images_creds
-        _redis_rq_creds = cfg.redis_rq_creds
-        _s3_creds = cfg.s3_creds
-        _twitter_creds = cfg.twitter_creds
-        _configstuff = cfg.configstuff
-        _logging_config = json.loads(cfg.logging_config)
-    valid_config = True
+
+        valid_config = True
 
 if not valid_config:
     _get_config()
@@ -86,7 +101,7 @@ def get_images_redis_conn():
     import redis  # redis library
     global _redis_images
     if _redis_images is None:
-        _redis_images = redis.Redis(host=_redis_images_creds['hostname'], db=0, password=_redis_images_creds['password'],port=int(_redis_images_creds['port']))
+        _redis_images = redis.Redis(host=_redis_images_creds['host'], db=0, password=_redis_images_creds['pass'],port=int(_redis_images_creds['port']))
     return _redis_images
 
 def get_rq_redis_conn():
@@ -94,9 +109,9 @@ def get_rq_redis_conn():
     global _redis_queue
     if _redis_queue is None:
         _redis_queue = redis.Redis(
-            host=_redis_rq_creds['hostname'],
+            host=_redis_rq_creds['host'],
             db=0,
-            password=_redis_rq_creds['password'],
+            password=_redis_rq_creds['pass'],
             port=int(_redis_rq_creds['port'])
         )
     return _redis_queue

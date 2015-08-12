@@ -13,9 +13,10 @@ from requests.packages.urllib3.exceptions import ProtocolError
 import utils
 import random
 
-logging.config.dictConfig(utils.get_log_dict())
-worker_logger = logging.getLogger("vascodagama.worker")
-watcher_logger = logging.getLogger("vascodagama.watcher")
+logging.basicConfig(level=logging.DEBUG)
+
+worker_logger = logging.getLogger(__name__)
+watcher_logger = logging.getLogger(__name__)
 
 
 def get_image(image_url, actually_store=True):
@@ -91,6 +92,7 @@ def retrieve_image(image_url):
 
 def store_to_vipr(image_data):
     s3_creds = utils.s3_creds()
+    print(s3_creds)
     worker_logger.debug("Storing to ViPR")
     worker_logger.debug("Connecting to ViPR")
     s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'],
@@ -110,6 +112,7 @@ def store_to_vipr(image_data):
     return k  #and return that key info.
 
 def watch_stream():
+    watcher_logger.info("Entering setup")
     twitter_creds = utils.twitter_creds()
     redis_queue = utils.get_rq_redis_conn()
     hashtag = redis_queue.get("hashtag")
@@ -119,7 +122,7 @@ def watch_stream():
         consumer_key=twitter_creds['consumer_key'].encode('ascii','ignore'),
         consumer_secret=twitter_creds['consumer_secret'].encode('ascii','ignore'),
         access_token_key=twitter_creds['access_token'].encode('ascii','ignore'),
-        access_token_secret=twitter_creds['token_secret'].encode('ascii','ignore')
+        access_token_secret=twitter_creds['access_secret'].encode('ascii','ignore')
     )  #setup the twitter streaming connectors.
 
     watcher_logger.info("Waiting for tweets...")
@@ -130,7 +133,7 @@ def watch_stream():
                         watcher_logger.info("Hashtag changed from {}, breaking loop to restart with new hashtag".format(hashtag))
                         hashtag = redis_queue.get("hashtag")
                         break
-                    #watcher_logger.debug("Tweet Received: {}".format(hashtag))  #Log it
+                    watcher_logger.debug("Tweet Received: {}".format(hashtag))  #Log it
                     redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
                     watcher_logger.debug("received tweet with tag {}".format(hashtag))
                     try:

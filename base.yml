@@ -1,13 +1,12 @@
 ---
 # all applications use these settings and services
-domain: cfapps.io
 memory: 128M
 instances: 1
 no-route: true
 buildpack: python_buildpack
 services:
-   - vascodagama-db
-   - vascodagama-images
+   - redis-rq
+   - redis-metadata
    - twitter
    - configstuff
    - logging_config

@@ -62,7 +62,7 @@ def check_auth(username, password):
     password combination is valid.  It only accepts 1 set of values :). TODO.
     """
     configstuff = utils.configstuff()
-    return username == configstuff['cf_user'] and password == configstuff['cf_pass']
+    return username == "user" and password == "pass"
 
 
 
