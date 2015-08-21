@@ -67,8 +67,8 @@ def process_image(image, random_sleep=0):
         ImageFilter.SHARPEN
     ]
 
-    filter_to_use = random.choice(possible_filters)
-    image = image.filter(filter_to_use)  #run the image through a blur filter
+    #filter_to_use = random.choice(possible_filters)
+    #image = image.filter(filter_to_use)  #run the image through a blur filter
     final_image = StringIO()  #and now, since the PIL library requires a 'file like' object to store its data in, and I dont want to write a temp file, setup a stringIO to hold it.
     image.save(final_image, 'jpeg')  #store it as a JPG
     if random_sleep:  #added a random sleep here to make it seem like the process takes longer.  Simulates more expensive processing.
