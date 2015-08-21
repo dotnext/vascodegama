@@ -2,6 +2,7 @@
 inherit: base.yml
 
 applications:
-- instances: 2
+- name: twitter-worker-prod
+  instances: 2
   command: rqworker -c settings -v
   no-route: true
