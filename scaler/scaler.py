@@ -38,23 +38,8 @@ def clear_app():
 
     logger.debug("repopulating the hashtag")
     redis_queue.set("hashtag",hashtag)
-    logger.debug("opening s3 connection")
-    s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'], host=s3_creds['url'])  #set up an S3 style connections
-    logger.debug("Getting bucket")
-    bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
-    logger.debug("deleting bucket contents in batches of 100")
 
-    all_keys = [x.key for x in bucket.list()]
-    for keys in batch_gen(all_keys,100):
-        logger.info("Deleted image {} from object store".format(keys[0]))
-        q.enqueue(
-            bucket.delete_keys,
-            keys,
-            ttl=60,
-            result_ttl=60,
-            timeout=60
-        )
-    return len(all_keys)
+    return 1
 
 
 def check_auth(username, password):
