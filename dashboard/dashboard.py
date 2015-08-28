@@ -9,6 +9,12 @@ logging.config.dictConfig(utils.get_log_dict())
 
 logger = logging.getLogger('vascodagama.dashboard')
 
+from pyloggly import LogglyHandler
+
+
+handler = LogglyHandler('d6985ec5-ebdc-4f2e-bab0-5163b1fc8f19', 'logs-01.loggly.com', 'dashboard')
+logger.addHandler(handler)
+
 
 redis_images = utils.get_images_redis_conn()
 r = utils.get_rq_redis_conn()

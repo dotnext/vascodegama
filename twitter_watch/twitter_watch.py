@@ -12,11 +12,17 @@ import httplib
 from requests.packages.urllib3.exceptions import ProtocolError
 import utils
 import random
+from pyloggly import LogglyHandler
 
 logging.basicConfig(level=logging.DEBUG)
+handler = LogglyHandler('d6985ec5-ebdc-4f2e-bab0-5163b1fc8f19', 'logs-01.loggly.com', 'vdg')
+
+
 
 worker_logger = logging.getLogger(__name__)
+worker_logger.addHandler(handler)
 watcher_logger = logging.getLogger(__name__)
+watcher_logger.addHandler(handler)
 
 
 def get_image(image_url, actually_store=True):
@@ -49,7 +55,7 @@ def store_to_redis(image_key):
             image_key.generate_url(60 * 60 * 23))  #Get a URL, and store it.  That URL is good for 23 hrs
     tx.hset(image_key.key, "size",
             image_key.size)  #Store the size of the image.  Better to store it here where its cheap to check than in ViPR where its expensive.
-    tx.expire(image_key.key, 60 * 60 * 23)  # Expire the entire redis key in 23 hours
+    tx.expire(image_key.key, 60 * 60 * 72)  # Expire the entire redis key in 72 hours
 
     tx.execute()  #Run the transaction.
     worker_logger.info("Stored image to redis: {}".format(image_key))

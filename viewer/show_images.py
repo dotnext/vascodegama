@@ -16,6 +16,13 @@ watcher_logger = logging.getLogger("vascodagama.watcher")
 
 logger = logging.getLogger('vascodagama.images')
 
+from pyloggly import LogglyHandler
+
+
+handler = LogglyHandler('d6985ec5-ebdc-4f2e-bab0-5163b1fc8f19', 'logs-01.loggly.com', 'images')
+logger.addHandler(handler)
+
+
 #setup flask
 app = Flask(__name__)
 

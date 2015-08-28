@@ -16,6 +16,12 @@ from config import Config #Easy config files
 logging.config.dictConfig(utils.get_log_dict())
 logger = logging.getLogger('vascodagama.scaler')
 
+from pyloggly import LogglyHandler
+
+
+handler = LogglyHandler('d6985ec5-ebdc-4f2e-bab0-5163b1fc8f19', 'logs-01.loggly.com', 'scaler')
+logger.addHandler(handler)
+
 
 
 redis_images = utils.get_images_redis_conn()
