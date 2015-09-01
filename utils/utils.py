@@ -102,6 +102,7 @@ def get_images_redis_conn():
     global _redis_images
     if _redis_images is None:
         _redis_images = redis.Redis(host=_redis_images_creds['host'], db=0, password=_redis_images_creds['pass'],port=int(_redis_images_creds['port']))
+
     return _redis_images
 
 def get_rq_redis_conn():
@@ -114,6 +115,7 @@ def get_rq_redis_conn():
             password=_redis_rq_creds['pass'],
             port=int(_redis_rq_creds['port'])
         )
+
     return _redis_queue
 
 def get_rq():

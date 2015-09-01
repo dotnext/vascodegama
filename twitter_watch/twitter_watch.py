@@ -13,6 +13,8 @@ from requests.packages.urllib3.exceptions import ProtocolError
 import utils
 import random
 from pyloggly import LogglyHandler
+import re
+import pprint
 
 logging.basicConfig(level=logging.DEBUG)
 handler = LogglyHandler('d6985ec5-ebdc-4f2e-bab0-5163b1fc8f19', 'logs-01.loggly.com', 'vdg')
@@ -24,8 +26,13 @@ worker_logger.addHandler(handler)
 watcher_logger = logging.getLogger(__name__)
 watcher_logger.addHandler(handler)
 
+worker_logger.setLevel(logging.INFO)
+logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARN)
+logging.getLogger("boto").setLevel(logging.WARN)
+logging.getLogger("rq.worker").setLevel(logging.WARN)
 
-def get_image(image_url, actually_store=True):
+
+def get_image(image_url, actually_store=True, assoc_url=None):
     """
     This is the job that gets queued when a tweet needs to be analyzed
     """
@@ -33,6 +40,14 @@ def get_image(image_url, actually_store=True):
 
     start = time.time()  #Lets store some timing info
     image = retrieve_image(image_url)  #Go get that image
+    is_porn = False
+    worker_logger.debug(assoc_url)
+    for url in assoc_url:
+        if check_porn(url):
+            is_porn = True
+            redis_queue.incr("stats:filtered-images")
+            break
+
     if image is not None:  #As long as we have a vaid image and its not None (aka Null)
         image = process_image(image)  #Do our image processings
         if actually_store:  #If our configu file says to store the image for reals
@@ -98,7 +113,6 @@ def retrieve_image(image_url):
 
 def store_to_vipr(image_data):
     s3_creds = utils.s3_creds()
-    print(s3_creds)
     worker_logger.debug("Storing to ViPR")
     worker_logger.debug("Connecting to ViPR")
     s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'],
@@ -117,11 +131,30 @@ def store_to_vipr(image_data):
     worker_logger.info("Stored image {} to object store".format(k.key))
     return k  #and return that key info.
 
+
+def check_porn(check_url):
+    worker_logger.info("Checking URL: {}".format(check_url))
+    if not check_url:
+        return False
+    response = requests.post(url="http://sitereview.bluecoat.com/rest/categorization/", data={"url":check_url}).json()
+
+    if re.search("adult|mature|sex|porn|extreme",response['categorization']):
+        print("PORN FOUND")
+
+        worker_logger.warn("Found porn: {}".format(check_url))
+        worker_logger.warn("Category: {}".format(response['categorization']))
+        return True
+    worker_logger.debug("No Porn Found")
+    return False
+
+
+
 def watch_stream():
     watcher_logger.info("Entering setup")
     twitter_creds = utils.twitter_creds()
     redis_queue = utils.get_rq_redis_conn()
     hashtag = redis_queue.get("hashtag")
+
     q = utils.get_rq()
 
     twitter_api = TwitterAPI(
@@ -134,29 +167,48 @@ def watch_stream():
     watcher_logger.info("Waiting for tweets...")
     while True:
             try:
-                for tweet in twitter_api.request('statuses/filter', {'track': hashtag}).get_iterator():  #for each one of thise
+                tweets_object = twitter_api.request('statuses/filter', {'track': hashtag})
+                if tweets_object.status_code != 200:
+                    watcher_logger.critical("Connected to twitter was rejected with code: {}".format(tweets_object.status_code))
+                    watcher_logger.critical("Sleeping 20 seconds and trying again")
+                    time.sleep(20)
+                    raise ProtocolError()
+                else:
+                    watcher_logger.critical("Connected to twitter was accepted with code: {}".format(tweets_object.status_code))
+
+                for tweet in tweets_object.get_iterator():  #for each one of thise
                     if hashtag != redis_queue.get("hashtag"):
                         watcher_logger.info("Hashtag changed from {}, breaking loop to restart with new hashtag".format(hashtag))
                         hashtag = redis_queue.get("hashtag")
                         break
                     watcher_logger.debug("Tweet Received: {}".format(hashtag))  #Log it
                     redis_queue.incr("stats:tweets")  #Let Redis know we got another one.
-                    watcher_logger.debug("received tweet with tag {}".format(hashtag))
+                    #watcher_logger.debug("received tweet with tag {}".format(hashtag))
                     try:
+
+                        if tweet['possibly_sensitive']:
+                            redis_queue.incr("stats:filtered-images")
+                            raise Exception("Sensitive Tweet")
+                        all_urls = []
+                        for url in tweet['entities']['urls']:
+                            #watcher_logger.debug(url)
+                            all_urls.append(url['expanded_url'])
                         if tweet['entities']['media'][0]['type'] == 'photo': #Look for the photo.  If its not there, will throw a KeyError, caught below
-                            if 'retweeted' not in tweet:
-                                watcher_logger.info("Tweet was a RT - ignoring")
-                                continue
-                            watcher_logger.info("Dispatching tweet ({}) with URL {}".format(hashtag,tweet['entities']['media'][0]['media_url']))  # log it
+                            watcher_logger.info("Dispatching tweet ({}) with source {} and assoc url: {}".format(hashtag,tweet['entities']['media'][0]['media_url'],all_urls))  # log it
+                            #watcher_logger.info(all_urls)
                             q.enqueue(
                                 get_image,
                                 tweet['entities']['media'][0]['media_url'],
+                                assoc_url=all_urls,
                                 ttl=60,
                                 result_ttl=60,
                                 timeout=60
                             )  #add a job to the queue, calling get_image() with the image URL and a timeout of 60s
                     except KeyError as e:
-                        watcher_logger.debug("Caught a key error for tweet, expected behavior, so ignoring: {}".format(e.message))
+                        if e.message == "media":
+                            pass
+                        else:
+                            watcher_logger.debug("Caught a key error for tweet, expected behavior, so ignoring: {}".format(e.message))
                     except Exception as e:
                         watcher_logger.critical("UNEXPECTED EXCEPTION: {}".format(e))
             except httplib.IncompleteRead as e:

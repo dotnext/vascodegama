@@ -73,6 +73,8 @@ def update_dashboard(): # the primary function.
     # logging.debug("{}: {}".format("count",count))
     # send_update.delay("keys-in-redis", count)
 
+    get_filter_count()
+
 def get_worker_count():
 
     count = len(r.keys("rq:worker:*"))
@@ -161,3 +163,12 @@ def get_tweets_processed():
         proc =  0
     logger.debug("Tweet-Proc: {}".format(proc))
     send_update.delay("tweet-processed",proc)
+
+def get_filter_count():
+    proc = 0
+    try:
+        proc =  int(r.get("stats:filtered-images")) #simple get from redis.
+    except:
+        proc =  0
+    logger.debug("Filtered: {}".format(proc))
+    send_update.delay("filtered-images",proc)
