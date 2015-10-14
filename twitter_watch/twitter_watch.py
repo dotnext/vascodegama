@@ -115,8 +115,7 @@ def store_to_vipr(image_data):
     s3_creds = utils.s3_creds()
     worker_logger.debug("Storing to ViPR")
     worker_logger.debug("Connecting to ViPR")
-    s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'],
-                             host=s3_creds['url'])  #set up an S3 style connections
+    s3conn = boto.connect_s3(s3_creds['access_key'], s3_creds['secret_key'])  #set up an S3 style connections
     worker_logger.debug("Getting bucket")
     bucket = s3conn.get_bucket(s3_creds['bucket_name'])  #reference to the S3 bucket.
     #lifecycle = Lifecycle()  #new lifecycle managers
@@ -133,6 +132,7 @@ def store_to_vipr(image_data):
 
 
 def check_porn(check_url):
+    return False
     worker_logger.info("Checking URL: {}".format(check_url))
     if not check_url:
         return False

@@ -4,6 +4,5 @@ inherit: base.yml
 applications:
 - name: images
   no-route: false
-  host: tweets
-  domain: vmworld.emccode.com
+  host: cftweets
   command: python viewer/show_images.py

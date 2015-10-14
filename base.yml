@@ -9,5 +9,4 @@ services:
    - redis-metadata
    - twitter
    - configstuff
-   - logging_config
    - s3_storage
