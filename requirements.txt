@@ -1,5 +1,5 @@
 MarkupSafe==0.23
-Pillow==8.1.2
+Pillow==9.0.0
 PyMemoize==1.0.1
 TwitterAPI==2.2.8
 anyjson==0.3.3
